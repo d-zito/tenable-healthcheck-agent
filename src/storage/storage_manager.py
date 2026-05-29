@@ -77,7 +77,8 @@ class StorageManager:
         for filepath in self.data_dir.glob('healthcheck_*.json'):
             try:
                 file_date_str = filepath.stem.replace('healthcheck_', '')
-                file_date = datetime.strptime(file_date_str, '%Y%m%d_%H%M%S')
+                # Parse as naive datetime, then make it timezone-aware in UTC
+                file_date = datetime.strptime(file_date_str, '%Y%m%d_%H%M%S').replace(tzinfo=timezone.utc)
 
                 if file_date < cutoff_date:
                     filepath.unlink()
