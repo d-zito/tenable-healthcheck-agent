@@ -96,7 +96,7 @@ def main():
     analysis_results = {
         'scans': analyzer.analyze_scans(current_data.get('scans', {}), previous_data),
         'assets': analyzer.analyze_credentials(current_data.get('assets', {}), previous_data),
-        'license': analyzer.analyze_license(current_data.get('license', {}), previous_data),
+        'license': analyzer.analyze_license(current_data.get('assets', {}), previous_data),
         'agents': analyzer.analyze_agents(current_data.get('agents', {}), previous_data),
         'scanners': analyzer.analyze_scanners(current_data.get('scanners', {}), previous_data),
         'connectors': analyzer.analyze_connectors(current_data.get('connectors', {}), previous_data)

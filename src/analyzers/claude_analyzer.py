@@ -28,6 +28,14 @@ class ClaudeAnalyzer:
 3. Specific recommendations for addressing any problems
 4. Trends or patterns that should be monitored
 
+IMPORTANT GUIDELINES:
+- Scanners: ONLY flag as an issue if there are problem_scanners > 0 or offline scanners
+- Agents: ONLY flag as an issue if there are offline_agents > 0 or long_offline_agents > 0
+- If all scanners are working and all agents are online, this is HEALTHY - do not mention as a concern
+- Scans: Flag aborted, stopped, or canceled scans as issues
+- Authentication: Flag significant drops in credential scan success rate
+- License: Flag if approaching license limits or unexpected changes
+
 Current Data:
 """
         prompt += json.dumps(current_data, indent=2)
@@ -40,7 +48,7 @@ Please provide your analysis in the following JSON format:
 {
   "health_status": "healthy|warning|critical",
   "executive_summary": "Brief overview of findings",
-  "key_concerns": ["List of major issues"],
+  "key_concerns": ["List of major issues - ONLY actual problems, not healthy systems"],
   "recommendations": [
     {
       "priority": "high|medium|low",
@@ -50,6 +58,8 @@ Please provide your analysis in the following JSON format:
   ],
   "trends": ["Notable trends or patterns"]
 }
+
+Remember: If scanners are all working and agents are all online, these are positives, not concerns.
 """
         return prompt
 

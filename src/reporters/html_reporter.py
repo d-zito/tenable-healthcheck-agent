@@ -9,7 +9,17 @@ class HTMLReporter:
         timestamp = run_data.get('timestamp', 'Unknown')
         data = run_data.get('data', {})
 
-        self._add_header(timestamp)
+        # Format timestamp for human readability
+        if timestamp != 'Unknown':
+            try:
+                dt = datetime.fromisoformat(timestamp)
+                formatted_timestamp = dt.strftime('%B %d, %Y at %I:%M %p UTC')
+            except (ValueError, AttributeError):
+                formatted_timestamp = timestamp
+        else:
+            formatted_timestamp = timestamp
+
+        self._add_header(formatted_timestamp)
 
         # Add Claude analysis at the top if available
         if claude_analysis and not claude_analysis.get('error'):
@@ -36,15 +46,19 @@ class HTMLReporter:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tenable Health Check Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #192124;
             background: #f5f5f5;
             padding: 20px;
+            letter-spacing: -0.03em;
         }
         .container {
             max-width: 1200px;
@@ -55,23 +69,24 @@ class HTMLReporter:
             overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1E2426;
             color: white;
             padding: 30px;
             text-align: center;
         }
-        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header h1 { font-size: 28px; margin-bottom: 10px; font-weight: 600; }
         .header .timestamp { font-size: 14px; opacity: 0.9; }
         .content { padding: 30px; }
         .section {
             margin-bottom: 40px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #E7FF00;
             padding-left: 20px;
         }
         .section h2 {
-            color: #667eea;
+            color: #1E2426;
             font-size: 20px;
             margin-bottom: 15px;
+            font-weight: 600;
         }
         .stat-grid {
             display: grid;
@@ -83,7 +98,7 @@ class HTMLReporter:
             background: #f8f9fa;
             padding: 15px;
             border-radius: 6px;
-            border-left: 3px solid #667eea;
+            border-left: 3px solid #1E2426;
         }
         .stat-card .label {
             font-size: 12px;
@@ -91,11 +106,12 @@ class HTMLReporter:
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 5px;
+            font-weight: 500;
         }
         .stat-card .value {
             font-size: 24px;
-            font-weight: bold;
-            color: #333;
+            font-weight: 600;
+            color: #192124;
         }
         .stat-card.warning { border-left-color: #ffa500; }
         .stat-card.warning .value { color: #ffa500; }
@@ -420,7 +436,7 @@ class HTMLReporter:
 
     def _add_license_section(self, license_data, analysis):
         total = license_data.get('total_assets', 0)
-        licensed = license_data.get('total_licensed_assets', 0)
+        licensed = license_data.get('licensed_assets', 0)
         unlicensed = license_data.get('unlicensed_assets', 0)
 
         self.html_parts.append(f'''
@@ -432,7 +448,7 @@ class HTMLReporter:
                         <div class="value">{total}</div>
                     </div>
                     <div class="stat-card success">
-                        <div class="label">Licensed Assets</div>
+                        <div class="label">Licensed Assets (90 days)</div>
                         <div class="value">{licensed}</div>
                     </div>
                     <div class="stat-card">
@@ -725,8 +741,8 @@ class HTMLReporter:
                         datasets: [{
                             label: 'Authentication Success %',
                             data: authData.map(d => d.auth_succeeded_pct),
-                            borderColor: '#28a745',
-                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                            borderColor: '#1E2426',
+                            backgroundColor: 'rgba(30, 36, 38, 0.1)',
                             tension: 0.4,
                             fill: true
                         }]
@@ -757,8 +773,8 @@ class HTMLReporter:
                         datasets: [{
                             label: 'Licensed Assets',
                             data: licenseData.map(d => d.total_licensed_assets),
-                            borderColor: '#667eea',
-                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderColor: '#1E2426',
+                            backgroundColor: 'rgba(30, 36, 38, 0.1)',
                             tension: 0.4,
                             fill: true
                         }]
@@ -786,15 +802,15 @@ class HTMLReporter:
                             {
                                 label: 'Online Agents',
                                 data: agentData.map(d => d.online_agents),
-                                borderColor: '#28a745',
-                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                                borderColor: '#1E2426',
+                                backgroundColor: 'rgba(30, 36, 38, 0.1)',
                                 tension: 0.4
                             },
                             {
                                 label: 'Offline Agents',
                                 data: agentData.map(d => d.offline_agents),
-                                borderColor: '#ffc107',
-                                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                                borderColor: '#E7FF00',
+                                backgroundColor: 'rgba(231, 255, 0, 0.1)',
                                 tension: 0.4
                             }
                         ]
@@ -822,12 +838,12 @@ class HTMLReporter:
                             {
                                 label: 'Completed Scans',
                                 data: scanData.map(d => d.completed_scans),
-                                backgroundColor: '#28a745'
+                                backgroundColor: '#1E2426'
                             },
                             {
                                 label: 'Problem Scans',
                                 data: scanData.map(d => d.problem_scans),
-                                backgroundColor: '#dc3545'
+                                backgroundColor: '#E7FF00'
                             }
                         ]
                     },

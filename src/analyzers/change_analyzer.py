@@ -50,14 +50,15 @@ class ChangeAnalyzer:
         }
 
     def analyze_license(self, current_data, previous_data):
+        """Analyze license usage from asset data (assets scanned in past 90 days)."""
         if not previous_data:
             return {
                 'has_previous_data': False,
                 'message': 'First run - no previous data to compare'
             }
 
-        current_licensed = current_data.get('total_licensed_assets', 0)
-        prev_licensed = previous_data.get('data', {}).get('license', {}).get('total_licensed_assets', 0)
+        current_licensed = current_data.get('licensed_assets', 0)
+        prev_licensed = previous_data.get('data', {}).get('assets', {}).get('licensed_assets', 0)
 
         change_count = current_licensed - prev_licensed
 

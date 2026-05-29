@@ -12,13 +12,11 @@ logger = setup_logger()
 
 from collectors.scan_collector import ScanCollector
 from collectors.asset_collector import AssetCollector
-from collectors.license_collector import LicenseCollector
 from collectors.agent_collector import AgentCollector
 from collectors.scanner_collector import ScannerCollector
 from collectors.connector_collector import ConnectorCollector
 
 from analyzers.change_analyzer import ChangeAnalyzer
-from analyzers.claude_analyzer import ClaudeAnalyzer
 
 from reporters.console_reporter import ConsoleReporter
 
@@ -52,7 +50,6 @@ def main():
 
     scan_collector = ScanCollector(client)
     asset_collector = AssetCollector(client)
-    license_collector = LicenseCollector(client)
     agent_collector = AgentCollector(client, thresholds.get('agent_offline_days', 14))
     scanner_collector = ScannerCollector(client)
     connector_collector = ConnectorCollector(client)
@@ -62,9 +59,6 @@ def main():
 
     logger.info("  • Collecting asset data...")
     asset_data = asset_collector.collect()
-
-    logger.info("  • Collecting license data...")
-    license_data = license_collector.collect()
 
     logger.info("  • Collecting agent data...")
     agent_data = agent_collector.collect()
@@ -78,7 +72,6 @@ def main():
     current_data = {
         'scans': scan_data,
         'assets': asset_data,
-        'license': license_data,
         'agents': agent_data,
         'scanners': scanner_data,
         'connectors': connector_data
@@ -90,23 +83,18 @@ def main():
     analysis_results = {
         'scans': analyzer.analyze_scans(scan_data, previous_run),
         'assets': analyzer.analyze_credentials(asset_data, previous_run),
-        'license': analyzer.analyze_license(license_data, previous_run),
+        'license': analyzer.analyze_license(asset_data, previous_run),
         'agents': analyzer.analyze_agents(agent_data, previous_run),
         'scanners': analyzer.analyze_scanners(scanner_data, previous_run),
         'connectors': analyzer.analyze_connectors(connector_data, previous_run)
     }
 
-    logger.info("Running AI analysis with Claude...")
-    claude = ClaudeAnalyzer(use_cli=config.use_claude_cli())
-    claude_results = claude.analyze_health_report(current_data, analysis_results)
-
     logger.info("\nSaving results...")
-    # Save data with Claude analysis included
-    run_data_with_analysis = {
-        'data': current_data,
-        'claude_analysis': claude_results
+    # Save data without Claude analysis (will be generated during report creation)
+    run_data = {
+        'data': current_data
     }
-    storage.save_run_data(run_data_with_analysis)
+    storage.save_run_data(run_data)
 
     # Save trend data for long-term charting
     trends.add_data_point(current_data)
@@ -118,12 +106,10 @@ def main():
 
     reporter.print_scans(scan_data, analysis_results['scans'])
     reporter.print_assets(asset_data, analysis_results['assets'])
-    reporter.print_license(license_data, analysis_results['license'])
+    reporter.print_license(asset_data, analysis_results['license'])
     reporter.print_agents(agent_data, analysis_results['agents'])
     reporter.print_scanners(scanner_data, analysis_results['scanners'])
     reporter.print_connectors(connector_data, analysis_results['connectors'])
-
-    reporter.print_claude_analysis(claude_results)
 
     reporter.print_footer()
 

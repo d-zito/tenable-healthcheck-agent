@@ -45,13 +45,12 @@ class TrendsManager:
             'auth_not_attempted': assets.get('auth_not_attempted', 0)
         }
 
-        # Extract license metrics
-        license_data = current_data.get('license', {})
+        # Extract license metrics from assets (assets scanned in past 90 days)
         license_point = {
             'timestamp': timestamp,
-            'total_licensed_assets': license_data.get('total_licensed_assets', 0),
-            'total_assets': license_data.get('total_assets', 0),
-            'unlicensed_assets': license_data.get('unlicensed_assets', 0)
+            'total_licensed_assets': assets.get('licensed_assets', 0),
+            'total_assets': assets.get('total_assets', 0),
+            'unlicensed_assets': assets.get('unlicensed_assets', 0)
         }
 
         # Extract agent metrics

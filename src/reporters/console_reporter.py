@@ -63,7 +63,7 @@ class ConsoleReporter:
         self.print_section("LICENSED ASSET COUNT")
 
         print(f"Total assets: {license_data['total_assets']}")
-        print(f"Licensed assets: {license_data['total_licensed_assets']}")
+        print(f"Licensed assets (scanned in past 90 days): {license_data['licensed_assets']}")
         print(f"Unlicensed assets: {license_data['unlicensed_assets']}")
 
         if analysis.get('has_previous_data'):

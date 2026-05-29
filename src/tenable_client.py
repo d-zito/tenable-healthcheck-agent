@@ -59,16 +59,23 @@ class TenableClient:
             list: List of connector dictionaries, or empty list if unavailable
         """
         try:
-            # pytenable may not have a direct connectors method, fall back to raw API
+            # Use the TenableIO API directly - response is already parsed to dict
             response = self.tio.get('settings/connectors')
-            connectors = response.get('connectors', [])
+
+            # Check if response is a dict or needs parsing
+            if isinstance(response, dict):
+                connectors = response.get('connectors', [])
+            else:
+                # If it's a Response object, parse it
+                connectors = response.json().get('connectors', [])
+
             logger.debug(f"Retrieved {len(connectors)} connectors from API")
             return connectors
         except AttributeError as e:
-            # 'get' method doesn't exist in this pytenable version
-            logger.warning(f"Connector API not available in this pytenable version: {e}")
+            # Response object doesn't have expected methods
+            logger.debug(f"Connector API response format unexpected: {e}")
             return []
         except Exception as e:
             # API error, permissions issue, or endpoint doesn't exist
-            logger.warning(f"Unable to retrieve connectors: {type(e).__name__}: {str(e)}")
+            logger.debug(f"Unable to retrieve connectors: {type(e).__name__}: {str(e)}")
             return []
