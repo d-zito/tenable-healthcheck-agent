@@ -8,6 +8,7 @@ from datetime import datetime
 from reporters.html_reporter import HTMLReporter
 from analyzers.change_analyzer import ChangeAnalyzer
 from config_loader import ConfigLoader
+from storage.trends_manager import TrendsManager
 
 
 def get_latest_run(data_dir):
@@ -110,8 +111,13 @@ def main():
         claude_analysis = claude.analyze_health_report(current_data, analysis_results)
 
     print("Generating HTML report...")
+
+    # Load trend data for charts
+    trends_manager = TrendsManager()
+    trends_data = trends_manager.get_trends()
+
     reporter = HTMLReporter()
-    html_content = reporter.generate(run_data, analysis_results, claude_analysis)
+    html_content = reporter.generate(run_data, analysis_results, claude_analysis, trends_data)
 
     if args.output:
         output_file = args.output

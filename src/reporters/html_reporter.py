@@ -5,7 +5,7 @@ class HTMLReporter:
     def __init__(self):
         self.html_parts = []
 
-    def generate(self, run_data, analysis_results, claude_analysis=None):
+    def generate(self, run_data, analysis_results, claude_analysis=None, trends_data=None):
         timestamp = run_data.get('timestamp', 'Unknown')
         data = run_data.get('data', {})
 
@@ -14,6 +14,10 @@ class HTMLReporter:
         # Add Claude analysis at the top if available
         if claude_analysis and not claude_analysis.get('error'):
             self._add_claude_section(claude_analysis)
+
+        # Add trend charts if data available
+        if trends_data:
+            self._add_trends_section(trends_data)
 
         self._add_scan_section(data.get('scans', {}), analysis_results.get('scans', {}))
         self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}))
@@ -32,6 +36,7 @@ class HTMLReporter:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tenable Health Check Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -159,6 +164,28 @@ class HTMLReporter:
             text-align: center;
             color: #6c757d;
             font-size: 14px;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin: 20px 0;
+        }
+        .chart-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .chart-box h3 {
+            color: #667eea;
+            font-size: 16px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -638,6 +665,185 @@ class HTMLReporter:
                 self.html_parts.append('</div>')
 
         self.html_parts.append('            </div>')
+
+    def _add_trends_section(self, trends_data):
+        """Add trend charts section with historical data visualization."""
+        import json
+
+        # Check if we have enough data points for meaningful charts
+        auth_data = trends_data.get('authentication', [])
+        if len(auth_data) < 2:
+            return  # Need at least 2 data points for a trend
+
+        self.html_parts.append('''
+            <div class="section">
+                <h2>📈 Historical Trends</h2>
+                <div class="chart-grid">
+                    <div class="chart-box">
+                        <h3>Authentication Success Rate Over Time</h3>
+                        <div class="chart-container">
+                            <canvas id="authChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>License Usage Over Time</h3>
+                        <div class="chart-container">
+                            <canvas id="licenseChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Agent Status Over Time</h3>
+                        <div class="chart-container">
+                            <canvas id="agentChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Scan Health Over Time</h3>
+                        <div class="chart-container">
+                            <canvas id="scanChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                const trendsData = ''' + json.dumps(trends_data) + ''';
+
+                // Helper to format dates
+                function formatDate(timestamp) {
+                    const date = new Date(timestamp);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
+
+                // Authentication Success Rate Chart
+                const authData = trendsData.authentication || [];
+                const authLabels = authData.map(d => formatDate(d.timestamp));
+                const authChart = new Chart(document.getElementById('authChart'), {
+                    type: 'line',
+                    data: {
+                        labels: authLabels,
+                        datasets: [{
+                            label: 'Authentication Success %',
+                            data: authData.map(d => d.auth_succeeded_pct),
+                            borderColor: '#28a745',
+                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { callback: value => value + '%' }
+                            }
+                        }
+                    }
+                });
+
+                // License Usage Chart
+                const licenseData = trendsData.license || [];
+                const licenseLabels = licenseData.map(d => formatDate(d.timestamp));
+                const licenseChart = new Chart(document.getElementById('licenseChart'), {
+                    type: 'line',
+                    data: {
+                        labels: licenseLabels,
+                        datasets: [{
+                            label: 'Licensed Assets',
+                            data: licenseData.map(d => d.total_licensed_assets),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+
+                // Agent Status Chart
+                const agentData = trendsData.agents || [];
+                const agentLabels = agentData.map(d => formatDate(d.timestamp));
+                const agentChart = new Chart(document.getElementById('agentChart'), {
+                    type: 'line',
+                    data: {
+                        labels: agentLabels,
+                        datasets: [
+                            {
+                                label: 'Online Agents',
+                                data: agentData.map(d => d.online_agents),
+                                borderColor: '#28a745',
+                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Offline Agents',
+                                data: agentData.map(d => d.offline_agents),
+                                borderColor: '#ffc107',
+                                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+
+                // Scan Health Chart
+                const scanData = trendsData.scans || [];
+                const scanLabels = scanData.map(d => formatDate(d.timestamp));
+                const scanChart = new Chart(document.getElementById('scanChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: scanLabels,
+                        datasets: [
+                            {
+                                label: 'Completed Scans',
+                                data: scanData.map(d => d.completed_scans),
+                                backgroundColor: '#28a745'
+                            },
+                            {
+                                label: 'Problem Scans',
+                                data: scanData.map(d => d.problem_scans),
+                                backgroundColor: '#dc3545'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, stacked: false }
+                        }
+                    }
+                });
+            </script>
+''')
 
     def _add_footer(self):
         self.html_parts.append('''
