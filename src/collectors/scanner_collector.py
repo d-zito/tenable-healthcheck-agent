@@ -3,7 +3,16 @@ class ScannerCollector:
         self.client = tenable_client
 
     def collect(self):
-        scanners = self.client.list_scanners()
+        """
+        Collect scanner health data.
+
+        Only includes 'managed' scanners (user-managed), excluding 'local'
+        scanners which are hosted by Tenable.
+        """
+        all_scanners = self.client.list_scanners()
+
+        # Filter to only managed scanners (exclude Tenable-hosted 'local' scanners)
+        scanners = [s for s in all_scanners if s.get('type') == 'managed']
 
         total_scanners = len(scanners)
         working_scanners = 0
