@@ -1,7 +1,8 @@
 import subprocess
 import json
-import tempfile
-from pathlib import Path
+import logging
+
+logger = logging.getLogger('tenable-healthcheck')
 
 
 class ClaudeAnalyzer:
@@ -53,10 +54,13 @@ Please provide your analysis in the following JSON format:
         return prompt
 
     def _analyze_via_cli(self, prompt):
+        """
+        Analyze health data using Claude CLI.
+
+        Sends prompt via stdin to avoid command-line length limits.
+        """
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-                f.write(prompt)
-                temp_file = f.name
+            logger.debug("Sending health data to Claude CLI for analysis")
 
             result = subprocess.run(
                 ['claude', '-p', prompt],
@@ -65,9 +69,8 @@ Please provide your analysis in the following JSON format:
                 timeout=60
             )
 
-            Path(temp_file).unlink(missing_ok=True)
-
             if result.returncode == 0:
+                logger.debug("Claude analysis completed successfully")
                 # Try to parse JSON from the response
                 output = result.stdout.strip()
 
@@ -85,8 +88,10 @@ Please provide your analysis in the following JSON format:
 
                 try:
                     return json.loads(output)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
                     # If JSON parsing fails, return the raw text as summary
+                    logger.warning(f"Claude response was not valid JSON: {e}")
+                    logger.debug(f"Claude raw output: {result.stdout}")
                     return {
                         'health_status': 'unknown',
                         'executive_summary': result.stdout,
@@ -95,21 +100,26 @@ Please provide your analysis in the following JSON format:
                         'trends': []
                     }
             else:
+                logger.error(f"Claude CLI failed with exit code {result.returncode}")
+                logger.debug(f"Claude stderr: {result.stderr}")
                 return {
                     'error': 'Claude CLI failed',
                     'stderr': result.stderr
                 }
 
         except subprocess.TimeoutExpired:
+            logger.error("Claude analysis timed out after 60 seconds")
             return {
                 'error': 'Claude analysis timed out'
             }
         except FileNotFoundError:
+            logger.error("Claude CLI not found - is it installed?")
             return {
                 'error': 'Claude CLI not found. Please install Claude Code CLI.',
                 'help': 'Visit https://claude.ai/download to install Claude Code'
             }
         except Exception as e:
+            logger.error(f"Unexpected error during Claude analysis: {e}", exc_info=True)
             return {
                 'error': f'Unexpected error: {str(e)}'
             }

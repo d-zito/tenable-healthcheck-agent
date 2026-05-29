@@ -2,9 +2,12 @@
 import sys
 from pathlib import Path
 
+from logger import setup_logger
 from config_loader import ConfigLoader
 from tenable_client import TenableClient
 from storage.storage_manager import StorageManager
+
+logger = setup_logger()
 
 from collectors.scan_collector import ScanCollector
 from collectors.asset_collector import AssetCollector
@@ -20,13 +23,13 @@ from reporters.console_reporter import ConsoleReporter
 
 
 def main():
-    print("Starting Tenable One Health Check Agent...")
-    print()
+    logger.info("Starting Tenable One Health Check Agent...")
+    logger.info("")
 
     try:
         config = ConfigLoader()
     except FileNotFoundError as e:
-        print(f"ERROR: {e}")
+        logger.error(f"Configuration error: {e}")
         sys.exit(1)
 
     creds = config.get_tenable_credentials()
@@ -39,8 +42,8 @@ def main():
     storage = StorageManager(retention_days=config.get_data_retention_days())
     thresholds = config.get_thresholds()
 
-    print("Collecting data from Tenable One...")
-    print()
+    logger.info("Collecting data from Tenable One...")
+    logger.info("")
 
     previous_run = storage.get_previous_run()
     last_timestamp = previous_run['timestamp'] if previous_run else None
@@ -52,22 +55,22 @@ def main():
     scanner_collector = ScannerCollector(client)
     connector_collector = ConnectorCollector(client)
 
-    print("  • Collecting scan data...")
+    logger.info("  • Collecting scan data...")
     scan_data = scan_collector.collect(last_timestamp)
 
-    print("  • Collecting asset data...")
+    logger.info("  • Collecting asset data...")
     asset_data = asset_collector.collect()
 
-    print("  • Collecting license data...")
+    logger.info("  • Collecting license data...")
     license_data = license_collector.collect()
 
-    print("  • Collecting agent data...")
+    logger.info("  • Collecting agent data...")
     agent_data = agent_collector.collect()
 
-    print("  • Collecting scanner data...")
+    logger.info("  • Collecting scanner data...")
     scanner_data = scanner_collector.collect()
 
-    print("  • Collecting connector data...")
+    logger.info("  • Collecting connector data...")
     connector_data = connector_collector.collect()
 
     current_data = {
@@ -79,7 +82,7 @@ def main():
         'connectors': connector_data
     }
 
-    print("\nAnalyzing changes...")
+    logger.info("\nAnalyzing changes...")
     analyzer = ChangeAnalyzer(thresholds)
 
     analysis_results = {
@@ -91,11 +94,11 @@ def main():
         'connectors': analyzer.analyze_connectors(connector_data, previous_run)
     }
 
-    print("Running AI analysis with Claude...")
+    logger.info("Running AI analysis with Claude...")
     claude = ClaudeAnalyzer(use_cli=config.use_claude_cli())
     claude_results = claude.analyze_health_report(current_data, analysis_results)
 
-    print("\nSaving results...")
+    logger.info("\nSaving results...")
     # Save data with Claude analysis included
     run_data_with_analysis = {
         'data': current_data,
@@ -103,7 +106,7 @@ def main():
     }
     storage.save_run_data(run_data_with_analysis)
 
-    print("\n")
+    logger.info("\n")
 
     reporter = ConsoleReporter()
     reporter.print_header()
@@ -119,17 +122,15 @@ def main():
 
     reporter.print_footer()
 
-    print("\nHealth check complete!")
+    logger.info("\nHealth check complete!")
 
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\nHealth check interrupted by user.")
+        logger.warning("\n\nHealth check interrupted by user.")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\nERROR: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"\n\nERROR: {e}", exc_info=True)
         sys.exit(1)

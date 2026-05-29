@@ -1,4 +1,7 @@
 from tenable.io import TenableIO
+import logging
+
+logger = logging.getLogger('tenable-healthcheck')
 
 
 class TenableClient:
@@ -46,10 +49,26 @@ class TenableClient:
         return scanners
 
     def list_connectors(self):
-        # Connectors might not be available in all Tenable environments
+        """
+        Get list of connectors via direct API call.
+
+        Note: pytenable doesn't have a native connectors method, so we use
+        the raw API endpoint. Returns empty list if unavailable.
+
+        Returns:
+            list: List of connector dictionaries, or empty list if unavailable
+        """
         try:
             # pytenable may not have a direct connectors method, fall back to raw API
             response = self.tio.get('settings/connectors')
-            return response.get('connectors', [])
-        except Exception:
+            connectors = response.get('connectors', [])
+            logger.debug(f"Retrieved {len(connectors)} connectors from API")
+            return connectors
+        except AttributeError as e:
+            # 'get' method doesn't exist in this pytenable version
+            logger.warning(f"Connector API not available in this pytenable version: {e}")
+            return []
+        except Exception as e:
+            # API error, permissions issue, or endpoint doesn't exist
+            logger.warning(f"Unable to retrieve connectors: {type(e).__name__}: {str(e)}")
             return []

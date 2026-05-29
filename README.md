@@ -43,6 +43,8 @@ mkdir -p data/history
 
 ### 3. Configure
 
+**Option A: Configuration File** (Recommended for development)
+
 Edit `config/config.json` with your Tenable credentials:
 
 ```json
@@ -63,6 +65,18 @@ Edit `config/config.json` with your Tenable credentials:
   }
 }
 ```
+
+**Option B: Environment Variables** (Recommended for production/CI)
+
+Set environment variables instead of storing credentials in config file:
+
+```bash
+export TENABLE_ACCESS_KEY="your_access_key"
+export TENABLE_SECRET_KEY="your_secret_key"
+export TENABLE_BASE_URL="https://cloud.tenable.com"  # Optional
+```
+
+Environment variables take precedence over config file values.
 
 ### 4. Run
 
@@ -218,13 +232,31 @@ Recommendations:
          → Review if these systems should be removed from inventory
 ```
 
+## Logging
+
+The agent automatically logs to both console and file:
+- **Console**: User-friendly output with progress updates
+- **File**: Detailed logs saved to `logs/healthcheck.log`
+
+Logs include:
+- Timestamps for all operations
+- API collection progress
+- Error messages with stack traces
+- Claude analysis status
+- Storage operations
+
+View recent logs:
+```bash
+tail -f logs/healthcheck.log
+```
+
 ## Automation
 
 ### Linux/Mac (cron)
 ```bash
 crontab -e
 # Add this line for daily 9am runs:
-0 9 * * * cd /path/to/tenable-healthcheck-agent && python3 src/main.py >> logs/healthcheck.log 2>&1
+0 9 * * * cd /path/to/tenable-healthcheck-agent && source venv/bin/activate && python3 src/main.py
 ```
 
 ### Windows (Task Scheduler)

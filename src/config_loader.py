@@ -23,10 +23,21 @@ class ConfigLoader:
             return json.load(f)
 
     def get_tenable_credentials(self):
+        """
+        Get Tenable credentials from environment variables or config file.
+        Environment variables take precedence over config file values.
+
+        Environment variables:
+            TENABLE_ACCESS_KEY: Tenable API access key
+            TENABLE_SECRET_KEY: Tenable API secret key
+            TENABLE_BASE_URL: Tenable base URL (optional, defaults to https://cloud.tenable.com)
+        """
+        config_creds = self.config.get('tenable', {})
+
         return {
-            'access_key': self.config['tenable']['access_key'],
-            'secret_key': self.config['tenable']['secret_key'],
-            'base_url': self.config['tenable'].get('base_url', 'https://cloud.tenable.com')
+            'access_key': os.getenv('TENABLE_ACCESS_KEY', config_creds.get('access_key')),
+            'secret_key': os.getenv('TENABLE_SECRET_KEY', config_creds.get('secret_key')),
+            'base_url': os.getenv('TENABLE_BASE_URL', config_creds.get('base_url', 'https://cloud.tenable.com'))
         }
 
     def get_thresholds(self):
