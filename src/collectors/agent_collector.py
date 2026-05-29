@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class AgentCollector:
@@ -14,7 +14,8 @@ class AgentCollector:
         long_offline_agents = []
         online_agents = 0
 
-        threshold_timestamp = datetime.now() - timedelta(days=self.offline_threshold_days)
+        # Use UTC for consistent timestamp comparisons
+        threshold_timestamp = datetime.now(timezone.utc) - timedelta(days=self.offline_threshold_days)
 
         for agent in agents:
             status = agent.get('status', '').lower()
@@ -33,7 +34,8 @@ class AgentCollector:
                 offline_agents.append(agent_info)
 
                 if last_connect:
-                    last_connect_dt = datetime.fromtimestamp(last_connect)
+                    # Convert Unix timestamp to UTC datetime
+                    last_connect_dt = datetime.fromtimestamp(last_connect, tz=timezone.utc)
                     if last_connect_dt < threshold_timestamp:
                         long_offline_agents.append(agent_info)
 

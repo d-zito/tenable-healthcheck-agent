@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class ScanCollector:
@@ -42,9 +42,16 @@ class ScanCollector:
         }
 
     def _is_scan_new(self, scan, last_run_dt):
+        """Check if scan was modified after the last run timestamp."""
         modification_timestamp = scan.get('last_modification_date')
         if not modification_timestamp:
             return False
 
-        scan_dt = datetime.fromtimestamp(modification_timestamp)
+        # Convert Unix timestamp to timezone-aware UTC datetime
+        scan_dt = datetime.fromtimestamp(modification_timestamp, tz=timezone.utc)
+
+        # Parse last_run_dt if it's a string (ISO format from storage)
+        if isinstance(last_run_dt, str):
+            last_run_dt = datetime.fromisoformat(last_run_dt.replace('Z', '+00:00'))
+
         return scan_dt > last_run_dt

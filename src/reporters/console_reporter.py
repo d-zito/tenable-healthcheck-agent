@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from tabulate import tabulate
 
 
@@ -9,7 +9,9 @@ class ConsoleReporter:
     def print_header(self):
         print("=" * self.width)
         print("TENABLE ONE HEALTH CHECK REPORT".center(self.width))
-        print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}".center(self.width))
+        # Use UTC timestamp for consistency
+        now_utc = datetime.now(timezone.utc)
+        print(f"Generated: {now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')}".center(self.width))
         print("=" * self.width)
         print()
 

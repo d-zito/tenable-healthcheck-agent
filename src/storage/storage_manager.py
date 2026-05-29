@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -15,7 +15,9 @@ class StorageManager:
         self.retention_days = retention_days
 
     def save_run_data(self, data):
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # Use UTC for consistent timestamps across time zones
+        now_utc = datetime.now(timezone.utc)
+        timestamp = now_utc.strftime('%Y%m%d_%H%M%S')
         filename = f"healthcheck_{timestamp}.json"
         filepath = self.data_dir / filename
 
@@ -23,13 +25,13 @@ class StorageManager:
         if isinstance(data, dict) and 'data' in data:
             # New format: data already contains 'data' and potentially 'claude_analysis'
             run_data = {
-                'timestamp': datetime.now().isoformat(),
+                'timestamp': now_utc.isoformat(),
                 **data
             }
         else:
             # Old format: data is just the data dict
             run_data = {
-                'timestamp': datetime.now().isoformat(),
+                'timestamp': now_utc.isoformat(),
                 'data': data
             }
 
@@ -69,7 +71,8 @@ class StorageManager:
         return runs
 
     def _cleanup_old_data(self):
-        cutoff_date = datetime.now() - timedelta(days=self.retention_days)
+        # Use UTC for consistent date comparisons
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
 
         for filepath in self.data_dir.glob('healthcheck_*.json'):
             try:
