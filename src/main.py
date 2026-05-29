@@ -6,6 +6,7 @@ from logger import setup_logger
 from config_loader import ConfigLoader
 from tenable_client import TenableClient
 from storage.storage_manager import StorageManager
+from storage.trends_manager import TrendsManager
 
 logger = setup_logger()
 
@@ -40,6 +41,7 @@ def main():
     )
 
     storage = StorageManager(retention_days=config.get_data_retention_days())
+    trends = TrendsManager()
     thresholds = config.get_thresholds()
 
     logger.info("Collecting data from Tenable One...")
@@ -105,6 +107,9 @@ def main():
         'claude_analysis': claude_results
     }
     storage.save_run_data(run_data_with_analysis)
+
+    # Save trend data for long-term charting
+    trends.add_data_point(current_data)
 
     logger.info("\n")
 
