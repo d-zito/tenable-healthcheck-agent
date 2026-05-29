@@ -1,0 +1,18 @@
+{
+  "tenable": {
+    "access_key": "YOUR_TENABLE_ACCESS_KEY",
+    "secret_key": "YOUR_TENABLE_SECRET_KEY",
+    "base_url": "https://cloud.tenable.com"
+  },
+  "thresholds": {
+    "credential_scan_change_percent": 10,
+    "license_change_percent": 5,
+    "agent_offline_days": 14,
+    "scanner_offline_tolerance": 0,
+    "connector_offline_tolerance": 0
+  },
+  "data_retention_days": 90,
+  "claude": {
+    "use_cli": true
+  }
+}

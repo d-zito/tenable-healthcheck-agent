@@ -1,0 +1,157 @@
+class ChangeAnalyzer:
+    def __init__(self, thresholds):
+        self.thresholds = thresholds
+
+    def analyze_scans(self, current_data, previous_data):
+        if not previous_data:
+            return {
+                'has_previous_data': False,
+                'message': 'First run - no previous data to compare'
+            }
+
+        current_problems = current_data.get('problem_scans', [])
+        prev_problems = previous_data.get('data', {}).get('scans', {}).get('problem_scans', [])
+
+        new_problems = [
+            scan for scan in current_problems
+            if scan['id'] not in [p['id'] for p in prev_problems]
+        ]
+
+        return {
+            'has_previous_data': True,
+            'current_problem_count': len(current_problems),
+            'previous_problem_count': len(prev_problems),
+            'new_problem_scans': new_problems,
+            'change': len(current_problems) - len(prev_problems)
+        }
+
+    def analyze_credentials(self, current_data, previous_data):
+        if not previous_data:
+            return {
+                'has_previous_data': False,
+                'message': 'First run - no previous data to compare'
+            }
+
+        current_pct = current_data.get('auth_succeeded_percentage', 0)
+        prev_pct = previous_data.get('data', {}).get('assets', {}).get('auth_succeeded_percentage', 0)
+
+        change_pct = current_pct - prev_pct
+        threshold = self.thresholds.get('credential_scan_change_percent', 10)
+
+        is_significant = abs(change_pct) >= threshold
+
+        return {
+            'has_previous_data': True,
+            'current_percentage': current_pct,
+            'previous_percentage': prev_pct,
+            'change_percentage': round(change_pct, 2),
+            'is_significant_change': is_significant,
+            'threshold': threshold
+        }
+
+    def analyze_license(self, current_data, previous_data):
+        if not previous_data:
+            return {
+                'has_previous_data': False,
+                'message': 'First run - no previous data to compare'
+            }
+
+        current_licensed = current_data.get('total_licensed_assets', 0)
+        prev_licensed = previous_data.get('data', {}).get('license', {}).get('total_licensed_assets', 0)
+
+        change_count = current_licensed - prev_licensed
+
+        if prev_licensed > 0:
+            change_pct = (change_count / prev_licensed) * 100
+        else:
+            change_pct = 0
+
+        threshold = self.thresholds.get('license_change_percent', 5)
+        is_significant = abs(change_pct) >= threshold
+
+        return {
+            'has_previous_data': True,
+            'current_licensed': current_licensed,
+            'previous_licensed': prev_licensed,
+            'change_count': change_count,
+            'change_percentage': round(change_pct, 2),
+            'is_significant_change': is_significant,
+            'threshold': threshold
+        }
+
+    def analyze_agents(self, current_data, previous_data):
+        if not previous_data:
+            return {
+                'has_previous_data': False,
+                'message': 'First run - no previous data to compare'
+            }
+
+        current_offline = current_data.get('offline_agents', 0)
+        current_long_offline = current_data.get('long_offline_agents', 0)
+
+        prev_offline = previous_data.get('data', {}).get('agents', {}).get('offline_agents', 0)
+        prev_long_offline = previous_data.get('data', {}).get('agents', {}).get('long_offline_agents', 0)
+
+        return {
+            'has_previous_data': True,
+            'current_offline': current_offline,
+            'previous_offline': prev_offline,
+            'offline_change': current_offline - prev_offline,
+            'current_long_offline': current_long_offline,
+            'previous_long_offline': prev_long_offline,
+            'long_offline_change': current_long_offline - prev_long_offline
+        }
+
+    def analyze_scanners(self, current_data, previous_data):
+        if not previous_data:
+            return {
+                'has_previous_data': False,
+                'message': 'First run - no previous data to compare',
+                'new_problem_scanners': current_data.get('problem_scanner_list', []),
+                'recovered_scanners': []
+            }
+
+        current_problems = current_data.get('problem_scanner_list', [])
+        prev_problems = previous_data.get('data', {}).get('scanners', {}).get('problem_scanner_list', [])
+
+        current_problem_ids = {s['id'] for s in current_problems}
+        prev_problem_ids = {s['id'] for s in prev_problems}
+
+        new_problems = [s for s in current_problems if s['id'] not in prev_problem_ids]
+        recovered = [s for s in prev_problems if s['id'] not in current_problem_ids]
+
+        return {
+            'has_previous_data': True,
+            'current_problem_count': len(current_problems),
+            'previous_problem_count': len(prev_problems),
+            'new_problem_scanners': new_problems,
+            'recovered_scanners': recovered,
+            'ongoing_problem_scanners': [s for s in current_problems if s['id'] in prev_problem_ids]
+        }
+
+    def analyze_connectors(self, current_data, previous_data):
+        if not previous_data:
+            return {
+                'has_previous_data': False,
+                'message': 'First run - no previous data to compare',
+                'new_problem_connectors': current_data.get('problem_connector_list', []),
+                'recovered_connectors': []
+            }
+
+        current_problems = current_data.get('problem_connector_list', [])
+        prev_problems = previous_data.get('data', {}).get('connectors', {}).get('problem_connector_list', [])
+
+        current_problem_ids = {c['id'] for c in current_problems}
+        prev_problem_ids = {c['id'] for c in prev_problems}
+
+        new_problems = [c for c in current_problems if c['id'] not in prev_problem_ids]
+        recovered = [c for c in prev_problems if c['id'] not in current_problem_ids]
+
+        return {
+            'has_previous_data': True,
+            'current_problem_count': len(current_problems),
+            'previous_problem_count': len(prev_problems),
+            'new_problem_connectors': new_problems,
+            'recovered_connectors': recovered,
+            'ongoing_problem_connectors': [c for c in current_problems if c['id'] in prev_problem_ids]
+        }
