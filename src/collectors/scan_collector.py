@@ -53,5 +53,8 @@ class ScanCollector:
         # Parse last_run_dt if it's a string (ISO format from storage)
         if isinstance(last_run_dt, str):
             last_run_dt = datetime.fromisoformat(last_run_dt.replace('Z', '+00:00'))
+            # Ensure it's timezone-aware (add UTC if naive)
+            if last_run_dt.tzinfo is None:
+                last_run_dt = last_run_dt.replace(tzinfo=timezone.utc)
 
         return scan_dt > last_run_dt
