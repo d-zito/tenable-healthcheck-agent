@@ -1,64 +1,88 @@
 from datetime import datetime, timedelta, timezone
+import logging
+
+logger = logging.getLogger('tenable-healthcheck')
 
 
 class ScanCollector:
     def __init__(self, tenable_client):
         self.client = tenable_client
 
-    def collect(self, last_run_timestamp=None):
+    def collect(self, days_back=7):
+        """
+        Collect scan health data for the past N days.
+
+        Args:
+            days_back: Number of days to look back (default 7)
+
+        Returns:
+            dict with scan statistics and history
+        """
         scans_data = self.client.get_scans()
         scans = scans_data.get('scans', [])
 
-        if last_run_timestamp:
-            last_run_dt = datetime.fromisoformat(last_run_timestamp)
-            scans = [s for s in scans if self._is_scan_new(s, last_run_dt)]
+        cutoff_time = datetime.now(timezone.utc) - timedelta(days=days_back)
+        cutoff_timestamp = int(cutoff_time.timestamp())
 
-        problem_scans = []
-        completed_scans = []
+        total_launches = 0
+        currently_running = 0
+        scan_summary = {}  # {scan_name: {total_runs: X, failed_runs: Y}}
+
+        logger.info(f"    Analyzing scan history for past {days_back} days...")
 
         for scan in scans:
-            status = scan.get('status', '').lower()
+            scan_id = scan.get('id')
+            scan_name = scan.get('name')
 
-            if status in ['aborted', 'stopped', 'canceled']:
-                problem_scans.append({
-                    'id': scan.get('id'),
-                    'name': scan.get('name'),
-                    'status': status,
-                    'last_modification_date': scan.get('last_modification_date')
-                })
-            elif status == 'completed':
-                completed_scans.append({
-                    'id': scan.get('id'),
-                    'name': scan.get('name'),
-                    'status': status,
-                    'last_modification_date': scan.get('last_modification_date')
-                })
+            # Get scan history using pytenable's history() method
+            try:
+                # Get all history entries for this scan
+                history_iter = self.client.tio.scans.history(scan_id)
+
+                recent_history = []
+                has_running = False
+
+                for history_entry in history_iter:
+                    time_start = history_entry.get('time_start', 0)
+                    status = history_entry.get('status', '').lower()
+
+                    # Check if this scan run is currently running
+                    if status == 'running':
+                        has_running = True
+
+                    # Filter to past N days based on time_start
+                    if time_start >= cutoff_timestamp:
+                        recent_history.append(history_entry)
+
+                # Count currently running scans
+                if has_running:
+                    currently_running += 1
+
+                # Process recent history
+                if recent_history:
+                    total_runs = len(recent_history)
+                    failed_runs = sum(
+                        1 for h in recent_history
+                        if h.get('status', '').lower() not in ['completed', 'running']
+                    )
+
+                    total_launches += total_runs
+
+                    scan_summary[scan_name] = {
+                        'scan_id': scan_id,
+                        'total_runs': total_runs,
+                        'failed_runs': failed_runs,
+                        'success_runs': total_runs - failed_runs
+                    }
+
+            except Exception as e:
+                logger.warning(f"    Could not retrieve history for scan '{scan_name}': {e}")
+                continue
 
         return {
-            'total_scans': len(scans),
-            'problem_scans': problem_scans,
-            'completed_scans': completed_scans,
-            'scans_checked_since': last_run_timestamp
+            'days_back': days_back,
+            'total_launches': total_launches,
+            'currently_running': currently_running,
+            'unique_scans': len(scan_summary),
+            'scan_summary': scan_summary
         }
-
-    def _is_scan_new(self, scan, last_run_dt):
-        """Check if scan was modified after the last run timestamp."""
-        modification_timestamp = scan.get('last_modification_date')
-        if not modification_timestamp:
-            return False
-
-        # Convert Unix timestamp to timezone-aware UTC datetime
-        scan_dt = datetime.fromtimestamp(modification_timestamp, tz=timezone.utc)
-
-        # Parse last_run_dt if it's a string (ISO format from storage)
-        if isinstance(last_run_dt, str):
-            # Handle ISO format with timezone info
-            last_run_dt = datetime.fromisoformat(last_run_dt)
-            # Ensure it's timezone-aware (add UTC if naive)
-            if last_run_dt.tzinfo is None:
-                last_run_dt = last_run_dt.replace(tzinfo=timezone.utc)
-        elif last_run_dt.tzinfo is None:
-            # If it's already a datetime but naive, make it aware
-            last_run_dt = last_run_dt.replace(tzinfo=timezone.utc)
-
-        return scan_dt > last_run_dt

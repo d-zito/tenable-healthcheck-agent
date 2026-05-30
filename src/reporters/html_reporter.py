@@ -30,8 +30,7 @@ class HTMLReporter:
             self._add_trends_section(trends_data)
 
         self._add_scan_section(data.get('scans', {}), analysis_results.get('scans', {}))
-        self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}))
-        self._add_license_section(data.get('license', {}), analysis_results.get('license', {}))
+        self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}), analysis_results.get('license', {}))
         self._add_agent_section(data.get('agents', {}), analysis_results.get('agents', {}))
         self._add_scanner_section(data.get('scanners', {}), analysis_results.get('scanners', {}))
         self._add_connector_section(data.get('connectors', {}), analysis_results.get('connectors', {}))
@@ -312,51 +311,79 @@ class HTMLReporter:
         self.html_parts.append('            </div>')
 
     def _add_scan_section(self, scan_data, analysis):
-        total = scan_data.get('total_scans', 0)
-        problems = len(scan_data.get('problem_scans', []))
-        completed = len(scan_data.get('completed_scans', []))
+        days_back = scan_data.get('days_back', 7)
+        total_launches = scan_data.get('total_launches', 0)
+        currently_running = scan_data.get('currently_running', 0)
+        unique_scans = scan_data.get('unique_scans', 0)
+        scan_summary = scan_data.get('scan_summary', {})
 
-        status_class = 'success' if problems == 0 else 'warning' if problems < 5 else 'danger'
+        # Calculate total failures across all scans
+        total_failures = sum(details['failed_runs'] for details in scan_summary.values())
+        status_class = 'success' if total_failures == 0 else 'warning' if total_failures < 5 else 'danger'
 
-        self.html_parts.append('''
+        self.html_parts.append(f'''
             <div class="section">
-                <h2>📊 Scan Health</h2>
+                <h2>📊 Scan Health (Past {days_back} Days)</h2>
                 <div class="stat-grid">
                     <div class="stat-card">
-                        <div class="label">Total Scans</div>
-                        <div class="value">''' + str(total) + '''</div>
+                        <div class="label">Total Launches</div>
+                        <div class="value">{total_launches}</div>
                     </div>
                     <div class="stat-card success">
-                        <div class="label">Completed</div>
-                        <div class="value">''' + str(completed) + '''</div>
+                        <div class="label">Currently Running</div>
+                        <div class="value">{currently_running}</div>
                     </div>
-                    <div class="stat-card ''' + status_class + '''">
-                        <div class="label">Problem Scans</div>
-                        <div class="value">''' + str(problems) + '''</div>
+                    <div class="stat-card">
+                        <div class="label">Unique Scans</div>
+                        <div class="value">{unique_scans}</div>
+                    </div>
+                    <div class="stat-card {status_class}">
+                        <div class="label">Total Failed Runs</div>
+                        <div class="value">{total_failures}</div>
                     </div>
                 </div>
 ''')
 
-        if scan_data.get('problem_scans'):
+        if scan_summary:
+            # Sort by total runs descending
+            sorted_scans = sorted(
+                scan_summary.items(),
+                key=lambda x: x[1]['total_runs'],
+                reverse=True
+            )
+
             self.html_parts.append('''
                 <table>
                     <thead>
                         <tr>
                             <th>Scan Name</th>
-                            <th>Status</th>
-                            <th>Last Modified</th>
+                            <th>Total Runs</th>
+                            <th>Successful</th>
+                            <th>Failed</th>
+                            <th>Success Rate</th>
                         </tr>
                     </thead>
                     <tbody>
 ''')
-            for scan in scan_data['problem_scans']:
-                status_badge = 'danger' if scan['status'] in ['aborted', 'stopped'] else 'warning'
-                mod_date = datetime.fromtimestamp(scan['last_modification_date']).strftime('%Y-%m-%d %H:%M')
+            for scan_name, details in sorted_scans:
+                total_runs = details['total_runs']
+                success_runs = details['success_runs']
+                failed_runs = details['failed_runs']
+                success_rate = (success_runs / total_runs * 100) if total_runs > 0 else 0
+
+                row_class = ''
+                if failed_runs > 0:
+                    row_class = ' style="background-color: #fff3cd;"'
+
+                badge_class = 'success' if failed_runs == 0 else 'danger'
+
                 self.html_parts.append(f'''
-                        <tr>
-                            <td>{scan['name']}</td>
-                            <td><span class="badge {status_badge}">{scan['status']}</span></td>
-                            <td>{mod_date}</td>
+                        <tr{row_class}>
+                            <td>{scan_name}</td>
+                            <td>{total_runs}</td>
+                            <td>{success_runs}</td>
+                            <td><span class="badge {badge_class}">{failed_runs}</span></td>
+                            <td>{success_rate:.1f}%</td>
                         </tr>
 ''')
             self.html_parts.append('''
@@ -365,21 +392,29 @@ class HTMLReporter:
 ''')
 
         if analysis.get('has_previous_data'):
-            change = analysis.get('change', 0)
-            change_class = 'positive' if change < 0 else 'negative' if change > 0 else 'neutral'
-            arrow = '↓' if change < 0 else '↑' if change > 0 else '→'
+            launches_change = analysis.get('launches_change', 0)
+            running_change = analysis.get('running_change', 0)
+
+            launches_class = 'positive' if launches_change > 0 else 'negative' if launches_change < 0 else 'neutral'
+            launches_arrow = '↑' if launches_change > 0 else '↓' if launches_change < 0 else '→'
+
+            running_class = 'neutral'
+            running_arrow = '↑' if running_change > 0 else '↓' if running_change < 0 else '→'
+
             self.html_parts.append(f'''
                 <div class="alert info">
-                    <strong>Change from previous run:</strong>
-                    <span class="change {change_class}">{arrow} {abs(change)} problem scans</span>
+                    <strong>Change from previous run:</strong><br>
+                    Total launches: <span class="change {launches_class}">{launches_arrow} {abs(launches_change)}</span><br>
+                    Currently running: <span class="change {running_class}">{running_arrow} {abs(running_change)}</span>
                 </div>
 ''')
 
         self.html_parts.append('            </div>')
 
-    def _add_asset_section(self, asset_data, analysis):
+    def _add_asset_section(self, asset_data, analysis, license_analysis):
         total = asset_data.get('total_assets', 0)
         licensed = asset_data.get('licensed_assets', 0)
+        unlicensed = asset_data.get('unlicensed_assets', 0)
         auth_succeeded = asset_data.get('auth_succeeded', 0)
         auth_not_attempted = asset_data.get('auth_not_attempted', 0)
         auth_failed = asset_data.get('auth_failed', 0)
@@ -389,15 +424,19 @@ class HTMLReporter:
 
         self.html_parts.append(f'''
             <div class="section">
-                <h2>🔐 Asset Authentication Status</h2>
+                <h2>🔐 Asset & License Status</h2>
                 <div class="stat-grid">
                     <div class="stat-card">
                         <div class="label">Total Assets</div>
                         <div class="value">{total}</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card success">
                         <div class="label">Licensed Assets (90d)</div>
                         <div class="value">{licensed}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Unlicensed Assets</div>
+                        <div class="value">{unlicensed}</div>
                     </div>
                     <div class="stat-card {status_class}">
                         <div class="label">Auth Succeeded</div>
@@ -414,68 +453,42 @@ class HTMLReporter:
                 </div>
 ''')
 
-        if analysis.get('has_previous_data'):
-            change_pct = analysis.get('change_percentage', 0)
-            is_significant = analysis.get('is_significant_change', False)
-            change_class = 'positive' if change_pct > 0 else 'negative' if change_pct < 0 else 'neutral'
-            arrow = '↑' if change_pct > 0 else '↓' if change_pct < 0 else '→'
+        # Show changes from previous run
+        if analysis.get('has_previous_data') or license_analysis.get('has_previous_data'):
+            self.html_parts.append('<div class="alert info"><strong>Changes from previous run:</strong><br>')
 
-            alert_class = 'warning' if is_significant else 'info'
-            self.html_parts.append(f'''
-                <div class="alert {alert_class}">
-                    <strong>Change from previous run:</strong>
-                    <span class="change {change_class}">{arrow} {abs(change_pct):.2f}%</span>
-''')
-            if is_significant:
+            # Authentication change
+            if analysis.get('has_previous_data'):
+                change_pct = analysis.get('change_percentage', 0)
+                is_significant = analysis.get('is_significant_change', False)
+                change_class = 'positive' if change_pct > 0 else 'negative' if change_pct < 0 else 'neutral'
+                arrow = '↑' if change_pct > 0 else '↓' if change_pct < 0 else '→'
+
                 self.html_parts.append(f'''
-                    <br><strong>⚠️ SIGNIFICANT CHANGE detected</strong> (threshold: {analysis['threshold']}%)
-''')
-            self.html_parts.append('                </div>')
+                    Authentication Success Rate: <span class="change {change_class}">{arrow} {abs(change_pct):.2f}%</span>
+                ''')
 
-        self.html_parts.append('            </div>')
+                if is_significant:
+                    self.html_parts.append(f''' <strong>⚠️ SIGNIFICANT CHANGE</strong> (threshold: {analysis['threshold']}%)''')
 
-    def _add_license_section(self, license_data, analysis):
-        total = license_data.get('total_assets', 0)
-        licensed = license_data.get('licensed_assets', 0)
-        unlicensed = license_data.get('unlicensed_assets', 0)
+                self.html_parts.append('<br>')
 
-        self.html_parts.append(f'''
-            <div class="section">
-                <h2>📈 Licensed Asset Count</h2>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="label">Total Assets</div>
-                        <div class="value">{total}</div>
-                    </div>
-                    <div class="stat-card success">
-                        <div class="label">Licensed Assets (90 days)</div>
-                        <div class="value">{licensed}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="label">Unlicensed</div>
-                        <div class="value">{unlicensed}</div>
-                    </div>
-                </div>
-''')
+            # License change
+            if license_analysis.get('has_previous_data'):
+                license_change = license_analysis.get('change_count', 0)
+                license_change_pct = license_analysis.get('change_percentage', 0)
+                is_significant_license = license_analysis.get('is_significant_change', False)
+                change_class = 'positive' if license_change > 0 else 'negative' if license_change < 0 else 'neutral'
+                arrow = '↑' if license_change > 0 else '↓' if license_change < 0 else '→'
 
-        if analysis.get('has_previous_data'):
-            change = analysis.get('change_count', 0)
-            change_pct = analysis.get('change_percentage', 0)
-            is_significant = analysis.get('is_significant_change', False)
-            change_class = 'positive' if change > 0 else 'negative' if change < 0 else 'neutral'
-            arrow = '↑' if change > 0 else '↓' if change < 0 else '→'
-
-            alert_class = 'warning' if is_significant else 'info'
-            self.html_parts.append(f'''
-                <div class="alert {alert_class}">
-                    <strong>Change from previous run:</strong>
-                    <span class="change {change_class}">{arrow} {abs(change)} licensed assets ({change_pct:+.2f}%)</span>
-''')
-            if is_significant:
                 self.html_parts.append(f'''
-                    <br><strong>⚠️ SIGNIFICANT CHANGE detected</strong> (threshold: {analysis['threshold']}%)
-''')
-            self.html_parts.append('                </div>')
+                    Licensed Assets: <span class="change {change_class}">{arrow} {abs(license_change)} assets ({license_change_pct:+.2f}%)</span>
+                ''')
+
+                if is_significant_license:
+                    self.html_parts.append(f''' <strong>⚠️ SIGNIFICANT CHANGE</strong> (threshold: {license_analysis['threshold']}%)''')
+
+            self.html_parts.append('</div>')
 
         self.html_parts.append('            </div>')
 

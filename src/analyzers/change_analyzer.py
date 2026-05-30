@@ -3,26 +3,27 @@ class ChangeAnalyzer:
         self.thresholds = thresholds
 
     def analyze_scans(self, current_data, previous_data):
+        """Analyze scan activity over the specified time period."""
         if not previous_data:
             return {
                 'has_previous_data': False,
                 'message': 'First run - no previous data to compare'
             }
 
-        current_problems = current_data.get('problem_scans', [])
-        prev_problems = previous_data.get('data', {}).get('scans', {}).get('problem_scans', [])
+        current_launches = current_data.get('total_launches', 0)
+        prev_launches = previous_data.get('data', {}).get('scans', {}).get('total_launches', 0)
 
-        new_problems = [
-            scan for scan in current_problems
-            if scan['id'] not in [p['id'] for p in prev_problems]
-        ]
+        current_running = current_data.get('currently_running', 0)
+        prev_running = previous_data.get('data', {}).get('scans', {}).get('currently_running', 0)
 
         return {
             'has_previous_data': True,
-            'current_problem_count': len(current_problems),
-            'previous_problem_count': len(prev_problems),
-            'new_problem_scans': new_problems,
-            'change': len(current_problems) - len(prev_problems)
+            'current_launches': current_launches,
+            'previous_launches': prev_launches,
+            'launches_change': current_launches - prev_launches,
+            'current_running': current_running,
+            'previous_running': prev_running,
+            'running_change': current_running - prev_running
         }
 
     def analyze_credentials(self, current_data, previous_data):

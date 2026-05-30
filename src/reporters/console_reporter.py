@@ -20,24 +20,40 @@ class ConsoleReporter:
         print("-" * len(title))
 
     def print_scans(self, scan_data, analysis):
-        self.print_section("SCAN HEALTH")
+        self.print_section("SCAN HEALTH (Past 7 Days)")
 
-        print(f"Total scans checked: {scan_data['total_scans']}")
-        print(f"Problem scans: {len(scan_data['problem_scans'])}")
-        print(f"Completed scans: {len(scan_data['completed_scans'])}")
+        print(f"Total scan launches: {scan_data['total_launches']}")
+        print(f"Currently running: {scan_data['currently_running']}")
+        print(f"Unique scans run: {scan_data['unique_scans']}")
 
-        if scan_data['problem_scans']:
-            print("\nProblem Scans:")
+        if scan_data['scan_summary']:
+            print(f"\nScan Activity Summary:")
+            # Sort by total runs descending
+            sorted_scans = sorted(
+                scan_data['scan_summary'].items(),
+                key=lambda x: x[1]['total_runs'],
+                reverse=True
+            )
+
             table_data = [
-                [s['name'], s['status'], datetime.fromtimestamp(s['last_modification_date']).strftime('%Y-%m-%d %H:%M')]
-                for s in scan_data['problem_scans']
+                [
+                    name,
+                    details['total_runs'],
+                    details['success_runs'],
+                    details['failed_runs']
+                ]
+                for name, details in sorted_scans
             ]
-            print(tabulate(table_data, headers=['Name', 'Status', 'Last Modified'], tablefmt='simple'))
+            print(tabulate(
+                table_data,
+                headers=['Scan Name', 'Total Runs', 'Successful', 'Failed'],
+                tablefmt='simple'
+            ))
 
         if analysis.get('has_previous_data'):
-            print(f"\nChange from previous run: {analysis['change']:+d} problem scans")
-            if analysis.get('new_problem_scans'):
-                print(f"New problem scans: {len(analysis['new_problem_scans'])}")
+            print(f"\nChange from previous run:")
+            print(f"  Total launches: {analysis['launches_change']:+d}")
+            print(f"  Currently running: {analysis['running_change']:+d}")
 
     def print_assets(self, asset_data, analysis):
         self.print_section("ASSET AUTHENTICATION STATUS")

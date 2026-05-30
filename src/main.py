@@ -46,7 +46,6 @@ def main():
     logger.info("")
 
     previous_run = storage.get_previous_run()
-    last_timestamp = previous_run['timestamp'] if previous_run else None
 
     scan_collector = ScanCollector(client)
     asset_collector = AssetCollector(client)
@@ -54,8 +53,8 @@ def main():
     scanner_collector = ScannerCollector(client)
     connector_collector = ConnectorCollector(client)
 
-    logger.info("  • Collecting scan data...")
-    scan_data = scan_collector.collect(last_timestamp)
+    logger.info("  • Collecting scan data (past 7 days)...")
+    scan_data = scan_collector.collect(days_back=7)
 
     logger.info("  • Collecting asset data...")
     asset_data = asset_collector.collect()
