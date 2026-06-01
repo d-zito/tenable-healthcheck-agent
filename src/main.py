@@ -54,7 +54,7 @@ def main():
     connector_collector = ConnectorCollector(client)
 
     logger.info("  • Collecting scan data (past 7 days)...")
-    scan_data = scan_collector.collect(days_back=7)
+    scan_data = scan_collector.collect(days_back=7, previous_run_data=previous_run)
 
     logger.info("  • Collecting asset data...")
     asset_data = asset_collector.collect()

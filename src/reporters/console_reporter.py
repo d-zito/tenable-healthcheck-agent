@@ -35,18 +35,43 @@ class ConsoleReporter:
                 reverse=True
             )
 
-            table_data = [
-                [
+            table_data = []
+            for name, details in sorted_scans:
+                is_enabled = details.get('is_enabled', True)
+                enabled_str = "✓" if is_enabled else "✗"
+                policy_name = details.get('policy', 'N/A')
+
+                total_runs = details['total_runs']
+                successful_runs = details.get('completed_runs', details.get('success_runs', 0))
+                failed_runs = details['failed_runs']
+                running_count = details.get('running_count', 0)
+
+                # Stopped = all intentional user actions
+                stopped_runs = details.get('stopped_runs', 0)
+                disabled_runs = details.get('disabled_runs', 0)
+                canceled_runs = details.get('canceled_runs', 0)
+                paused_runs = details.get('paused_runs', 0)
+                total_stopped = stopped_runs + disabled_runs + canceled_runs + paused_runs
+
+                # Success rate = successful / (total_runs - running)
+                completed_runs = total_runs - running_count
+                success_rate = (successful_runs / completed_runs * 100) if completed_runs > 0 else 0
+
+                table_data.append([
                     name,
-                    details['total_runs'],
-                    details['success_runs'],
-                    details['failed_runs']
-                ]
-                for name, details in sorted_scans
-            ]
+                    policy_name if policy_name else 'N/A',
+                    enabled_str,
+                    total_runs,
+                    running_count,
+                    successful_runs,
+                    total_stopped,
+                    failed_runs,
+                    f"{success_rate:.1f}%"
+                ])
+
             print(tabulate(
                 table_data,
-                headers=['Scan Name', 'Total Runs', 'Successful', 'Failed'],
+                headers=['Scan Name', 'Policy', 'Enabled', 'Total Runs', 'Running', 'Successful', 'Stopped', 'Failed', 'Success Rate'],
                 tablefmt='simple'
             ))
 

@@ -53,154 +53,210 @@ class HTMLReporter:
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #192124;
+            line-height: 1.4;
+            color: #1E2426;
             background: #f5f5f5;
-            padding: 20px;
-            letter-spacing: -0.03em;
+            padding: 15px;
+            letter-spacing: -0.02em;
+            font-size: 14px;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
             overflow: hidden;
         }
         .header {
-            background: #1E2426;
+            background: linear-gradient(135deg, #1E2426 0%, #2a3235 100%);
             color: white;
-            padding: 30px;
-            text-align: center;
+            padding: 20px 25px;
+            border-bottom: 3px solid #E7FF00;
         }
-        .header h1 { font-size: 28px; margin-bottom: 10px; font-weight: 600; }
-        .header .timestamp { font-size: 14px; opacity: 0.9; }
-        .content { padding: 30px; }
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header .timestamp {
+            font-size: 12px;
+            opacity: 0.85;
+            color: #E7FF00;
+        }
+        .content { padding: 20px 25px; }
         .section {
-            margin-bottom: 40px;
-            border-left: 4px solid #E7FF00;
-            padding-left: 20px;
+            margin-bottom: 25px;
+            border-left: 3px solid #E7FF00;
+            padding-left: 15px;
         }
         .section h2 {
             color: #1E2426;
-            font-size: 20px;
-            margin-bottom: 15px;
+            font-size: 16px;
+            margin-bottom: 10px;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .stat-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
         }
         .stat-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
+            background: #fafafa;
+            padding: 10px 12px;
+            border-radius: 4px;
             border-left: 3px solid #1E2426;
         }
         .stat-card .label {
-            font-size: 12px;
+            font-size: 10px;
             color: #666;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             font-weight: 500;
         }
         .stat-card .value {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 600;
-            color: #192124;
+            color: #1E2426;
         }
-        .stat-card.warning { border-left-color: #ffa500; }
-        .stat-card.warning .value { color: #ffa500; }
-        .stat-card.success { border-left-color: #28a745; }
-        .stat-card.success .value { color: #28a745; }
-        .stat-card.danger { border-left-color: #dc3545; }
-        .stat-card.danger .value { color: #dc3545; }
+        .stat-card.warning { border-left-color: #E7FF00; }
+        .stat-card.warning .value { color: #1E2426; }
+        .stat-card.success { border-left-color: #00c853; }
+        .stat-card.success .value { color: #00c853; }
+        .stat-card.danger { border-left-color: #ff1744; }
+        .stat-card.danger .value { color: #ff1744; }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
+            margin-top: 10px;
             background: white;
+            font-size: 13px;
         }
         th {
-            background: #f8f9fa;
-            padding: 12px;
-            text-align: left;
+            background: #1E2426;
+            color: white;
+            padding: 8px 10px;
+            text-align: center;
             font-weight: 600;
-            color: #495057;
-            border-bottom: 2px solid #dee2e6;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        th:first-child {
+            text-align: left;
         }
         td {
-            padding: 12px;
-            border-bottom: 1px solid #dee2e6;
+            padding: 6px 10px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: center;
         }
-        tr:hover { background: #f8f9fa; }
+        td:first-child {
+            text-align: left;
+        }
+        tr:nth-child(even) { background: #fafafa; }
+        tr:hover { background: #f5f5f5; }
         .badge {
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
         }
-        .badge.success { background: #d4edda; color: #155724; }
-        .badge.warning { background: #fff3cd; color: #856404; }
-        .badge.danger { background: #f8d7da; color: #721c24; }
+        .badge.success { background: #00c853; color: white; }
+        .badge.warning { background: #E7FF00; color: #1E2426; }
+        .badge.danger { background: #ff1744; color: white; }
         .change {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            font-size: 14px;
+            gap: 4px;
+            font-size: 12px;
             font-weight: 600;
         }
-        .change.positive { color: #28a745; }
-        .change.negative { color: #dc3545; }
-        .change.neutral { color: #6c757d; }
+        .change.positive { color: #00c853; }
+        .change.negative { color: #ff1744; }
+        .change.neutral { color: #666; }
         .alert {
-            padding: 15px;
-            border-radius: 6px;
-            margin-top: 15px;
+            padding: 10px 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
         }
         .alert.warning {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            color: #856404;
+            background: #fffbea;
+            border-left: 3px solid #E7FF00;
+            color: #1E2426;
         }
         .alert.info {
-            background: #d1ecf1;
-            border-left: 4px solid #17a2b8;
-            color: #0c5460;
+            background: #f5f5f5;
+            border-left: 3px solid #1E2426;
+            color: #1E2426;
         }
         .footer {
-            background: #f8f9fa;
-            padding: 20px;
+            background: #1E2426;
+            padding: 15px;
             text-align: center;
-            color: #6c757d;
-            font-size: 14px;
+            color: #E7FF00;
+            font-size: 12px;
+        }
+        .footer a {
+            color: #E7FF00;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .footer a:hover {
+            text-decoration: underline;
         }
         .chart-container {
             position: relative;
-            height: 300px;
-            margin: 20px 0;
+            height: 250px;
+            margin: 15px 0;
         }
         .chart-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 30px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin: 15px 0;
         }
         .chart-box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
+            background: #fafafa;
+            padding: 15px;
+            border-radius: 4px;
             border: 1px solid #e0e0e0;
         }
         .chart-box h3 {
-            color: #667eea;
-            font-size: 16px;
-            margin-bottom: 15px;
+            color: #1E2426;
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+        .collapsible:after {
+            content: ' ▼';
+            font-size: 10px;
+            color: #E7FF00;
+        }
+        .collapsible.collapsed:after {
+            content: ' ▶';
+        }
+        .collapsible-content {
+            max-height: 2000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0;
         }
     </style>
 </head>
@@ -216,12 +272,19 @@ class HTMLReporter:
     def _add_claude_section(self, claude_analysis):
         status = claude_analysis.get('health_status', 'unknown').upper()
         status_colors = {
-            'HEALTHY': '#28a745',
-            'WARNING': '#ffc107',
-            'CRITICAL': '#dc3545',
-            'UNKNOWN': '#6c757d'
+            'HEALTHY': '#00c853',
+            'WARNING': '#E7FF00',
+            'CRITICAL': '#ff1744',
+            'UNKNOWN': '#666'
         }
-        status_color = status_colors.get(status, '#6c757d')
+        status_color = status_colors.get(status, '#666')
+        status_text_colors = {
+            'HEALTHY': '#00c853',
+            'WARNING': '#1E2426',
+            'CRITICAL': '#ff1744',
+            'UNKNOWN': '#666'
+        }
+        status_text_color = status_text_colors.get(status, '#666')
         status_emojis = {
             'HEALTHY': '✓',
             'WARNING': '⚠️',
@@ -231,13 +294,13 @@ class HTMLReporter:
         status_emoji = status_emojis.get(status, '?')
 
         self.html_parts.append(f'''
-            <div class="section" style="background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%); padding: 25px; border-radius: 8px; border-left: 4px solid {status_color};">
-                <h2>🧠 AI Executive Summary</h2>
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                    <div style="font-size: 48px;">{status_emoji}</div>
+            <div class="section" style="background: #fafafa; padding: 15px; border-radius: 4px; border-left: 4px solid {status_color};">
+                <h2 style="margin-bottom: 12px;">🧠 AI Executive Summary</h2>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; background: white; padding: 12px; border-radius: 4px; border: 2px solid {status_color};">
+                    <div style="font-size: 32px;">{status_emoji}</div>
                     <div>
-                        <div style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Overall Health Status</div>
-                        <div style="font-size: 28px; font-weight: bold; color: {status_color};">{status}</div>
+                        <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Overall Health Status</div>
+                        <div style="font-size: 20px; font-weight: bold; color: {status_text_color};">{status}</div>
                     </div>
                 </div>
 ''')
@@ -245,20 +308,20 @@ class HTMLReporter:
         if claude_analysis.get('executive_summary'):
             summary = claude_analysis['executive_summary'].replace('\n', '<br>')
             self.html_parts.append(f'''
-                <div style="background: white; padding: 20px; border-radius: 6px; margin-bottom: 20px; border-left: 3px solid #667eea;">
-                    <h3 style="color: #667eea; font-size: 16px; margin-bottom: 10px;">📋 Summary</h3>
-                    <p style="line-height: 1.8; color: #333;">{summary}</p>
+                <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #1E2426;">
+                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">📋 Summary</h3>
+                    <p style="line-height: 1.6; color: #333; font-size: 13px;">{summary}</p>
                 </div>
 ''')
 
         if claude_analysis.get('key_concerns'):
             self.html_parts.append('''
-                <div style="background: white; padding: 20px; border-radius: 6px; margin-bottom: 20px; border-left: 3px solid #dc3545;">
-                    <h3 style="color: #dc3545; font-size: 16px; margin-bottom: 15px;">🚨 Key Concerns</h3>
-                    <ul style="margin-left: 20px; line-height: 2;">
+                <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ff1744;">
+                    <h3 style="color: #ff1744; font-size: 13px; margin-bottom: 8px; font-weight: 600;">🚨 Key Concerns</h3>
+                    <ul style="margin-left: 18px; line-height: 1.6; font-size: 13px;">
 ''')
             for concern in claude_analysis['key_concerns']:
-                self.html_parts.append(f'                        <li style="color: #333;">{concern}</li>')
+                self.html_parts.append(f'                        <li style="color: #333; margin-bottom: 4px;">{concern}</li>')
             self.html_parts.append('''
                     </ul>
                 </div>
@@ -266,27 +329,33 @@ class HTMLReporter:
 
         if claude_analysis.get('recommendations'):
             self.html_parts.append('''
-                <div style="background: white; padding: 20px; border-radius: 6px; margin-bottom: 20px; border-left: 3px solid #ffc107;">
-                    <h3 style="color: #ffc107; font-size: 16px; margin-bottom: 15px;">💡 Recommendations</h3>
+                <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #E7FF00;">
+                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">💡 Recommendations</h3>
 ''')
             for rec in claude_analysis['recommendations']:
                 priority = rec.get('priority', 'medium').upper()
                 priority_colors = {
-                    'HIGH': '#dc3545',
-                    'MEDIUM': '#ffc107',
-                    'LOW': '#17a2b8'
+                    'HIGH': '#ff1744',
+                    'MEDIUM': '#E7FF00',
+                    'LOW': '#1E2426'
                 }
-                priority_color = priority_colors.get(priority, '#6c757d')
+                priority_text_colors = {
+                    'HIGH': 'white',
+                    'MEDIUM': '#1E2426',
+                    'LOW': 'white'
+                }
+                priority_color = priority_colors.get(priority, '#666')
+                priority_text_color = priority_text_colors.get(priority, 'white')
                 issue = rec.get('issue', 'N/A')
                 action = rec.get('action', 'N/A')
 
                 self.html_parts.append(f'''
-                    <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid {priority_color};">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                            <span style="background: {priority_color}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">{priority}</span>
-                            <strong style="color: #333;">{issue}</strong>
+                    <div style="margin-bottom: 8px; padding: 10px; background: #fafafa; border-radius: 4px; border-left: 3px solid {priority_color};">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <span style="background: {priority_color}; color: {priority_text_color}; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">{priority}</span>
+                            <strong style="color: #1E2426; font-size: 12px;">{issue}</strong>
                         </div>
-                        <div style="color: #666; padding-left: 10px; border-left: 2px solid #dee2e6;">
+                        <div style="color: #666; padding-left: 8px; border-left: 2px solid #e0e0e0; font-size: 12px;">
                             → {action}
                         </div>
                     </div>
@@ -297,12 +366,12 @@ class HTMLReporter:
 
         if claude_analysis.get('trends'):
             self.html_parts.append('''
-                <div style="background: white; padding: 20px; border-radius: 6px; border-left: 3px solid #17a2b8;">
-                    <h3 style="color: #17a2b8; font-size: 16px; margin-bottom: 15px;">📈 Trends to Monitor</h3>
-                    <ul style="margin-left: 20px; line-height: 2;">
+                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 3px solid #1E2426;">
+                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">📈 Trends to Monitor</h3>
+                    <ul style="margin-left: 18px; line-height: 1.6; font-size: 13px;">
 ''')
             for trend in claude_analysis['trends']:
-                self.html_parts.append(f'                        <li style="color: #333;">{trend}</li>')
+                self.html_parts.append(f'                        <li style="color: #333; margin-bottom: 4px;">{trend}</li>')
             self.html_parts.append('''
                     </ul>
                 </div>
@@ -357,8 +426,12 @@ class HTMLReporter:
                     <thead>
                         <tr>
                             <th>Scan Name</th>
+                            <th>Policy</th>
+                            <th>Enabled</th>
                             <th>Total Runs</th>
+                            <th>Running</th>
                             <th>Successful</th>
+                            <th>Stopped</th>
                             <th>Failed</th>
                             <th>Success Rate</th>
                         </tr>
@@ -367,22 +440,39 @@ class HTMLReporter:
 ''')
             for scan_name, details in sorted_scans:
                 total_runs = details['total_runs']
-                success_runs = details['success_runs']
+                successful_runs = details.get('completed_runs', details.get('success_runs', 0))
                 failed_runs = details['failed_runs']
-                success_rate = (success_runs / total_runs * 100) if total_runs > 0 else 0
+                stopped_runs = details.get('stopped_runs', 0)
+                disabled_runs = details.get('disabled_runs', 0)
+                canceled_runs = details.get('canceled_runs', 0)
+                paused_runs = details.get('paused_runs', 0)
+                running_count = details.get('running_count', 0)
+                is_enabled = details.get('is_enabled', True)
+                policy_name = details.get('policy', 'N/A')
 
-                row_class = ''
-                if failed_runs > 0:
-                    row_class = ' style="background-color: #fff3cd;"'
+                # Stopped = all intentional user actions (stopped, disabled, canceled, paused)
+                total_stopped = stopped_runs + disabled_runs + canceled_runs + paused_runs
 
-                badge_class = 'success' if failed_runs == 0 else 'danger'
+                # Success rate = successful / (total_runs - running)
+                completed_runs = total_runs - running_count
+                success_rate = (successful_runs / completed_runs * 100) if completed_runs > 0 else 0
+
+                # Build enabled cell with checkmark or X
+                if is_enabled:
+                    enabled_cell = '<span style="color: #00c853; font-size: 18px; font-weight: bold;">✓</span>'
+                else:
+                    enabled_cell = '<span style="color: #ff1744; font-size: 18px; font-weight: bold;">✗</span>'
 
                 self.html_parts.append(f'''
-                        <tr{row_class}>
+                        <tr>
                             <td>{scan_name}</td>
+                            <td>{policy_name if policy_name else 'N/A'}</td>
+                            <td>{enabled_cell}</td>
                             <td>{total_runs}</td>
-                            <td>{success_runs}</td>
-                            <td><span class="badge {badge_class}">{failed_runs}</span></td>
+                            <td>{running_count}</td>
+                            <td>{successful_runs}</td>
+                            <td>{total_stopped}</td>
+                            <td>{failed_runs}</td>
                             <td>{success_rate:.1f}%</td>
                         </tr>
 ''')
@@ -744,6 +834,10 @@ class HTMLReporter:
                     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 }
 
+                // Chart defaults for Tenable branding
+                Chart.defaults.font.family = "'Work Sans', sans-serif";
+                Chart.defaults.font.size = 11;
+
                 // Authentication Success Rate Chart
                 const authData = trendsData.authentication || [];
                 const authLabels = authData.map(d => formatDate(d.timestamp));
@@ -756,22 +850,28 @@ class HTMLReporter:
                             data: authData.map(d => d.auth_succeeded_pct),
                             borderColor: '#1E2426',
                             backgroundColor: 'rgba(30, 36, 38, 0.1)',
-                            tension: 0.4,
-                            fill: true
+                            tension: 0.3,
+                            fill: true,
+                            borderWidth: 2,
+                            pointBackgroundColor: '#E7FF00',
+                            pointBorderColor: '#1E2426',
+                            pointRadius: 4
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: true, position: 'bottom' }
+                            legend: { display: false }
                         },
                         scales: {
                             y: {
                                 beginAtZero: true,
                                 max: 100,
-                                ticks: { callback: value => value + '%' }
-                            }
+                                ticks: { callback: value => value + '%' },
+                                grid: { color: '#e0e0e0' }
+                            },
+                            x: { grid: { display: false } }
                         }
                     }
                 });
@@ -788,18 +888,26 @@ class HTMLReporter:
                             data: licenseData.map(d => d.total_licensed_assets),
                             borderColor: '#1E2426',
                             backgroundColor: 'rgba(30, 36, 38, 0.1)',
-                            tension: 0.4,
-                            fill: true
+                            tension: 0.3,
+                            fill: true,
+                            borderWidth: 2,
+                            pointBackgroundColor: '#E7FF00',
+                            pointBorderColor: '#1E2426',
+                            pointRadius: 4
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: true, position: 'bottom' }
+                            legend: { display: false }
                         },
                         scales: {
-                            y: { beginAtZero: true }
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#e0e0e0' }
+                            },
+                            x: { grid: { display: false } }
                         }
                     }
                 });
@@ -817,14 +925,21 @@ class HTMLReporter:
                                 data: agentData.map(d => d.online_agents),
                                 borderColor: '#1E2426',
                                 backgroundColor: 'rgba(30, 36, 38, 0.1)',
-                                tension: 0.4
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointBackgroundColor: '#1E2426',
+                                pointRadius: 3
                             },
                             {
                                 label: 'Offline Agents',
                                 data: agentData.map(d => d.offline_agents),
                                 borderColor: '#E7FF00',
-                                backgroundColor: 'rgba(231, 255, 0, 0.1)',
-                                tension: 0.4
+                                backgroundColor: 'rgba(231, 255, 0, 0.2)',
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointBackgroundColor: '#E7FF00',
+                                pointBorderColor: '#1E2426',
+                                pointRadius: 3
                             }
                         ]
                     },
@@ -832,10 +947,14 @@ class HTMLReporter:
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: true, position: 'bottom' }
+                            legend: { display: true, position: 'bottom', labels: { padding: 10, boxWidth: 12 } }
                         },
                         scales: {
-                            y: { beginAtZero: true }
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#e0e0e0' }
+                            },
+                            x: { grid: { display: false } }
                         }
                     }
                 });
@@ -864,10 +983,15 @@ class HTMLReporter:
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: true, position: 'bottom' }
+                            legend: { display: true, position: 'bottom', labels: { padding: 10, boxWidth: 12 } }
                         },
                         scales: {
-                            y: { beginAtZero: true, stacked: false }
+                            y: {
+                                beginAtZero: true,
+                                stacked: false,
+                                grid: { color: '#e0e0e0' }
+                            },
+                            x: { grid: { display: false } }
                         }
                     }
                 });
@@ -878,8 +1002,7 @@ class HTMLReporter:
         self.html_parts.append('''
         </div>
         <div class="footer">
-            Generated by Tenable Health Check Agent |
-            <a href="https://github.com/d-zito/tenable-healthcheck-agent" style="color: #667eea; text-decoration: none;">GitHub</a>
+            Generated by Tenable Health Check Agent | <a href="https://github.com/d-zito/tenable-healthcheck-agent">View on GitHub</a>
         </div>
     </div>
 </body>

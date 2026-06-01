@@ -34,6 +34,11 @@ def load_run_data(filepath):
         return json.load(f)
 
 
+def save_run_data(filepath, data):
+    with open(filepath, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Generate HTML report from Tenable health check data'
@@ -52,6 +57,11 @@ def main():
         '--output',
         help='Output HTML file path (default: reports/healthcheck_TIMESTAMP.html)',
         type=Path
+    )
+    parser.add_argument(
+        '--skip-ai',
+        action='store_true',
+        help='Skip AI analysis (use cached analysis from JSON file) - for testing HTML formatting'
     )
 
     args = parser.parse_args()
@@ -102,13 +112,26 @@ def main():
         'connectors': analyzer.analyze_connectors(current_data.get('connectors', {}), previous_data)
     }
 
-    # Run Claude analysis if it wasn't saved in the original run
-    claude_analysis = run_data.get('claude_analysis')
-    if not claude_analysis:
+    # Handle Claude analysis
+    if args.skip_ai:
+        # Test mode - skip AI processing and use cached analysis
+        print("\n⚙️  Test mode: Skipping AI analysis (using cached data from JSON)")
+        claude_analysis = run_data.get('claude_analysis')
+        if not claude_analysis:
+            print("⚠  WARNING: No cached AI analysis found in this data file.")
+            print("   Run without --skip-ai flag first to generate and cache AI analysis.")
+            claude_analysis = None
+    else:
+        # Normal mode - always run fresh AI analysis
         print("Running AI analysis with Claude...")
         from analyzers.claude_analyzer import ClaudeAnalyzer
         claude = ClaudeAnalyzer(use_cli=config.use_claude_cli())
         claude_analysis = claude.analyze_health_report(current_data, analysis_results)
+
+        # Save AI analysis to JSON file for future testing mode use
+        print("Caching AI analysis to data file for future testing...")
+        run_data['claude_analysis'] = claude_analysis
+        save_run_data(data_file, run_data)
 
     print("Generating HTML report...")
 
