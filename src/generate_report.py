@@ -135,9 +135,9 @@ def main():
 
     print("Generating HTML report...")
 
-    # Load trend data for charts
+    # Load trend data for charts (daily aggregation)
     trends_manager = TrendsManager()
-    trends_data = trends_manager.get_trends()
+    trends_data = trends_manager.get_trends(daily_aggregation=True)
 
     reporter = HTMLReporter()
     html_content = reporter.generate(run_data, analysis_results, claude_analysis, trends_data)

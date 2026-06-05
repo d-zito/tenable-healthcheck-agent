@@ -20,17 +20,38 @@ class ConsoleReporter:
         print("-" * len(title))
 
     def print_scans(self, scan_data, analysis):
-        self.print_section("SCAN HEALTH (Past 7 Days)")
+        days_back = scan_data.get('days_back', 30)
+        scan_summary = scan_data.get('scan_summary', {})
 
-        print(f"Total scan launches: {scan_data['total_launches']}")
-        print(f"Currently running: {scan_data['currently_running']}")
-        print(f"Unique scans run: {scan_data['unique_scans']}")
+        # Split scans by type
+        # Agent scans: scan_type is None or 'agent'
+        # Remote scans: all other scan types
+        agent_scans = {name: details for name, details in scan_summary.items()
+                       if details.get('scan_type') in [None, 'agent']}
+        network_scans = {name: details for name, details in scan_summary.items()
+                         if details.get('scan_type') not in [None, 'agent']}
 
-        if scan_data['scan_summary']:
-            print(f"\nScan Activity Summary:")
-            # Sort by total runs descending
+        # Helper function to print a scan table
+        def print_scan_table(scans_dict, title, is_agent_table=False, show_overview=False):
+            if not scans_dict:
+                return
+
+            self.print_section(title)
+
+            # Show overview for network scans
+            if show_overview:
+                total_launches = sum(s['total_runs'] for s in scans_dict.values())
+                total_failures = sum(s['failed_runs'] for s in scans_dict.values())
+                currently_running = sum(1 for s in scans_dict.values() if s.get('running_count', 0) > 0)
+
+                print(f"Total launches: {total_launches}")
+                print(f"Currently running: {currently_running}")
+                print(f"Unique scans: {len(scans_dict)}")
+                print(f"Total failed runs: {total_failures}")
+                print()
+
             sorted_scans = sorted(
-                scan_data['scan_summary'].items(),
+                scans_dict.items(),
                 key=lambda x: x[1]['total_runs'],
                 reverse=True
             )
@@ -57,28 +78,46 @@ class ConsoleReporter:
                 completed_runs = total_runs - running_count
                 success_rate = (successful_runs / completed_runs * 100) if completed_runs > 0 else 0
 
-                table_data.append([
-                    name,
-                    policy_name if policy_name else 'N/A',
-                    enabled_str,
-                    total_runs,
-                    running_count,
-                    successful_runs,
-                    total_stopped,
-                    failed_runs,
-                    f"{success_rate:.1f}%"
-                ])
+                if is_agent_table:
+                    # For agent scans: if agent_scan_launch_type is None or empty, it's scheduled
+                    launch_type = details.get('agent_scan_launch_type')
+                    if not launch_type:
+                        launch_type = 'scheduled'
+                    table_data.append([
+                        name,
+                        policy_name if policy_name else 'N/A',
+                        launch_type
+                    ])
+                else:
+                    table_data.append([
+                        name,
+                        policy_name if policy_name else 'N/A',
+                        enabled_str,
+                        total_runs,
+                        running_count,
+                        successful_runs,
+                        total_stopped,
+                        failed_runs,
+                        f"{success_rate:.1f}%"
+                    ])
+
+            if is_agent_table:
+                headers = ['Scan Name', 'Policy', 'Launch Type']
+            else:
+                headers = ['Scan Name', 'Policy', 'Enabled', 'Total Runs', 'Running', 'Successful', 'Stopped', 'Failed', 'Success Rate']
 
             print(tabulate(
                 table_data,
-                headers=['Scan Name', 'Policy', 'Enabled', 'Total Runs', 'Running', 'Successful', 'Stopped', 'Failed', 'Success Rate'],
+                headers=headers,
                 tablefmt='simple'
             ))
 
-        if analysis.get('has_previous_data'):
-            print(f"\nChange from previous run:")
-            print(f"  Total launches: {analysis['launches_change']:+d}")
-            print(f"  Currently running: {analysis['running_change']:+d}")
+        # Print network scans first (with overview), then agent scans
+        if network_scans:
+            print_scan_table(network_scans, f"NETWORK SCANS (Past {days_back} Days)", is_agent_table=False, show_overview=True)
+
+        if agent_scans:
+            print_scan_table(agent_scans, "AGENT SCANS", is_agent_table=True, show_overview=False)
 
     def print_assets(self, asset_data, analysis):
         self.print_section("ASSET AUTHENTICATION STATUS")

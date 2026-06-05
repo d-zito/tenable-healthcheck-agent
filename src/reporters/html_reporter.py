@@ -30,10 +30,15 @@ class HTMLReporter:
             self._add_trends_section(trends_data)
 
         self._add_scan_section(data.get('scans', {}), analysis_results.get('scans', {}))
+
+        # Wrap the 4 status sections in a 2-column grid
+        self.html_parts.append('<div class="status-grid">')
         self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}), analysis_results.get('license', {}))
         self._add_agent_section(data.get('agents', {}), analysis_results.get('agents', {}))
         self._add_scanner_section(data.get('scanners', {}), analysis_results.get('scanners', {}))
         self._add_connector_section(data.get('connectors', {}), analysis_results.get('connectors', {}))
+        self.html_parts.append('</div>')
+
         self._add_footer()
 
         return '\n'.join(self.html_parts)
@@ -258,12 +263,21 @@ class HTMLReporter:
         .collapsible-content.collapsed {
             max-height: 0;
         }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .status-grid .section {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔒 Tenable Health Check Report</h1>
+            <h1>Tenable Health Check Report</h1>
             <div class="timestamp">Generated: ''' + timestamp + '''</div>
         </div>
         <div class="content">
@@ -295,7 +309,7 @@ class HTMLReporter:
 
         self.html_parts.append(f'''
             <div class="section" style="background: #fafafa; padding: 15px; border-radius: 4px; border-left: 4px solid {status_color};">
-                <h2 style="margin-bottom: 12px;">🧠 AI Executive Summary</h2>
+                <h2 style="margin-bottom: 12px;">AI Executive Summary</h2>
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; background: white; padding: 12px; border-radius: 4px; border: 2px solid {status_color};">
                     <div style="font-size: 32px;">{status_emoji}</div>
                     <div>
@@ -309,7 +323,7 @@ class HTMLReporter:
             summary = claude_analysis['executive_summary'].replace('\n', '<br>')
             self.html_parts.append(f'''
                 <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #1E2426;">
-                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">📋 Summary</h3>
+                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Summary</h3>
                     <p style="line-height: 1.6; color: #333; font-size: 13px;">{summary}</p>
                 </div>
 ''')
@@ -317,7 +331,7 @@ class HTMLReporter:
         if claude_analysis.get('key_concerns'):
             self.html_parts.append('''
                 <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ff1744;">
-                    <h3 style="color: #ff1744; font-size: 13px; margin-bottom: 8px; font-weight: 600;">🚨 Key Concerns</h3>
+                    <h3 style="color: #ff1744; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Key Concerns</h3>
                     <ul style="margin-left: 18px; line-height: 1.6; font-size: 13px;">
 ''')
             for concern in claude_analysis['key_concerns']:
@@ -330,7 +344,7 @@ class HTMLReporter:
         if claude_analysis.get('recommendations'):
             self.html_parts.append('''
                 <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #E7FF00;">
-                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">💡 Recommendations</h3>
+                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Recommendations</h3>
 ''')
             for rec in claude_analysis['recommendations']:
                 priority = rec.get('priority', 'medium').upper()
@@ -367,7 +381,7 @@ class HTMLReporter:
         if claude_analysis.get('trends'):
             self.html_parts.append('''
                 <div style="background: white; padding: 12px; border-radius: 4px; border-left: 3px solid #1E2426;">
-                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">📈 Trends to Monitor</h3>
+                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Trends to Monitor</h3>
                     <ul style="margin-left: 18px; line-height: 1.6; font-size: 13px;">
 ''')
             for trend in claude_analysis['trends']:
@@ -381,50 +395,41 @@ class HTMLReporter:
 
     def _add_scan_section(self, scan_data, analysis):
         days_back = scan_data.get('days_back', 7)
-        total_launches = scan_data.get('total_launches', 0)
-        currently_running = scan_data.get('currently_running', 0)
-        unique_scans = scan_data.get('unique_scans', 0)
         scan_summary = scan_data.get('scan_summary', {})
 
-        # Calculate total failures across all scans
-        total_failures = sum(details['failed_runs'] for details in scan_summary.values())
-        status_class = 'success' if total_failures == 0 else 'warning' if total_failures < 5 else 'danger'
+        # Split scans by type
+        # Agent scans: scan_type is None or 'agent'
+        # Remote scans: all other scan types
+        agent_scans = {name: details for name, details in scan_summary.items()
+                       if details.get('scan_type') in [None, 'agent']}
+        network_scans = {name: details for name, details in scan_summary.items()
+                         if details.get('scan_type') not in [None, 'agent']}
 
-        self.html_parts.append(f'''
-            <div class="section">
-                <h2>📊 Scan Health (Past {days_back} Days)</h2>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="label">Total Launches</div>
-                        <div class="value">{total_launches}</div>
-                    </div>
-                    <div class="stat-card success">
-                        <div class="label">Currently Running</div>
-                        <div class="value">{currently_running}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="label">Unique Scans</div>
-                        <div class="value">{unique_scans}</div>
-                    </div>
-                    <div class="stat-card {status_class}">
-                        <div class="label">Total Failed Runs</div>
-                        <div class="value">{total_failures}</div>
-                    </div>
-                </div>
-''')
+        # Helper function to render a scan table
+        def render_scan_table(scans_dict, title, is_agent_table=False, show_overview=False):
+            if not scans_dict:
+                return
 
-        if scan_summary:
-            # Sort by total runs descending
             sorted_scans = sorted(
-                scan_summary.items(),
+                scans_dict.items(),
                 key=lambda x: x[1]['total_runs'],
                 reverse=True
             )
 
-            self.html_parts.append('''
-                <table>
-                    <thead>
-                        <tr>
+            total_runs_section = sum(s['total_runs'] for s in scans_dict.values())
+            total_failures_section = sum(s['failed_runs'] for s in scans_dict.values())
+            currently_running = sum(1 for s in scans_dict.values() if s.get('running_count', 0) > 0)
+
+            # Headers differ for agent vs network scans
+            if is_agent_table:
+                headers = '''
+                            <th>Scan Name</th>
+                            <th>Policy</th>
+                            <th>Launch Type</th>
+                            <th>Enabled</th>
+'''
+            else:
+                headers = '''
                             <th>Scan Name</th>
                             <th>Policy</th>
                             <th>Enabled</th>
@@ -434,6 +439,17 @@ class HTMLReporter:
                             <th>Stopped</th>
                             <th>Failed</th>
                             <th>Success Rate</th>
+'''
+
+            self.html_parts.append(f'''
+                <div class="section">
+                    <h2>{title}</h2>
+''')
+
+            self.html_parts.append(f'''
+                <table>
+                    <thead>
+                        <tr>{headers}
                         </tr>
                     </thead>
                     <tbody>
@@ -463,7 +479,22 @@ class HTMLReporter:
                 else:
                     enabled_cell = '<span style="color: #ff1744; font-size: 18px; font-weight: bold;">✗</span>'
 
-                self.html_parts.append(f'''
+                # Build row with or without launch type column
+                if is_agent_table:
+                    # For agent scans: if agent_scan_launch_type is None or empty, it's scheduled
+                    launch_type = details.get('agent_scan_launch_type')
+                    if not launch_type:
+                        launch_type = 'scheduled'
+                    self.html_parts.append(f'''
+                        <tr>
+                            <td>{scan_name}</td>
+                            <td>{policy_name if policy_name else 'N/A'}</td>
+                            <td>{launch_type}</td>
+                            <td>{enabled_cell}</td>
+                        </tr>
+''')
+                else:
+                    self.html_parts.append(f'''
                         <tr>
                             <td>{scan_name}</td>
                             <td>{policy_name if policy_name else 'N/A'}</td>
@@ -479,27 +510,15 @@ class HTMLReporter:
             self.html_parts.append('''
                     </tbody>
                 </table>
-''')
-
-        if analysis.get('has_previous_data'):
-            launches_change = analysis.get('launches_change', 0)
-            running_change = analysis.get('running_change', 0)
-
-            launches_class = 'positive' if launches_change > 0 else 'negative' if launches_change < 0 else 'neutral'
-            launches_arrow = '↑' if launches_change > 0 else '↓' if launches_change < 0 else '→'
-
-            running_class = 'neutral'
-            running_arrow = '↑' if running_change > 0 else '↓' if running_change < 0 else '→'
-
-            self.html_parts.append(f'''
-                <div class="alert info">
-                    <strong>Change from previous run:</strong><br>
-                    Total launches: <span class="change {launches_class}">{launches_arrow} {abs(launches_change)}</span><br>
-                    Currently running: <span class="change {running_class}">{running_arrow} {abs(running_change)}</span>
                 </div>
 ''')
 
-        self.html_parts.append('            </div>')
+        # Render network scans first (with overview), then agent scans
+        if network_scans:
+            render_scan_table(network_scans, f"Network Scans (Past {days_back} Days)", is_agent_table=False, show_overview=True)
+
+        if agent_scans:
+            render_scan_table(agent_scans, "Agent Scans", is_agent_table=True, show_overview=False)
 
     def _add_asset_section(self, asset_data, analysis, license_analysis):
         total = asset_data.get('total_assets', 0)
@@ -510,77 +529,59 @@ class HTMLReporter:
         auth_failed = asset_data.get('auth_failed', 0)
         success_pct = asset_data.get('auth_succeeded_percentage', 0)
 
-        status_class = 'success' if success_pct >= 80 else 'warning' if success_pct >= 60 else 'danger'
-
         self.html_parts.append(f'''
             <div class="section">
-                <h2>🔐 Asset & License Status</h2>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="label">Total Assets</div>
-                        <div class="value">{total}</div>
-                    </div>
-                    <div class="stat-card success">
-                        <div class="label">Licensed Assets (90d)</div>
-                        <div class="value">{licensed}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="label">Unlicensed Assets</div>
-                        <div class="value">{unlicensed}</div>
-                    </div>
-                    <div class="stat-card {status_class}">
-                        <div class="label">Auth Succeeded</div>
-                        <div class="value">{auth_succeeded} ({success_pct}%)</div>
-                    </div>
-                    <div class="stat-card warning">
-                        <div class="label">Auth Not Attempted</div>
-                        <div class="value">{auth_not_attempted}</div>
-                    </div>
-                    <div class="stat-card danger">
-                        <div class="label">Auth Failed</div>
-                        <div class="value">{auth_failed}</div>
-                    </div>
-                </div>
+                <h2>Assets & Licensing</h2>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th style="text-align: right;">Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total Assets</td>
+                            <td style="text-align: right;"><strong>{total}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Licensed (90d)</td>
+                            <td style="text-align: right;">{licensed}</td>
+                        </tr>
+                        <tr>
+                            <td>Unlicensed</td>
+                            <td style="text-align: right;">{unlicensed}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>Authentication</h2>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th style="text-align: right;">Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Auth Succeeded</td>
+                            <td style="text-align: right;">{auth_succeeded} ({success_pct}%)</td>
+                        </tr>
+                        <tr>
+                            <td>Auth Not Attempted</td>
+                            <td style="text-align: right;">{auth_not_attempted}</td>
+                        </tr>
+                        <tr>
+                            <td>Auth Failed</td>
+                            <td style="text-align: right;">{auth_failed}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 ''')
-
-        # Show changes from previous run
-        if analysis.get('has_previous_data') or license_analysis.get('has_previous_data'):
-            self.html_parts.append('<div class="alert info"><strong>Changes from previous run:</strong><br>')
-
-            # Authentication change
-            if analysis.get('has_previous_data'):
-                change_pct = analysis.get('change_percentage', 0)
-                is_significant = analysis.get('is_significant_change', False)
-                change_class = 'positive' if change_pct > 0 else 'negative' if change_pct < 0 else 'neutral'
-                arrow = '↑' if change_pct > 0 else '↓' if change_pct < 0 else '→'
-
-                self.html_parts.append(f'''
-                    Authentication Success Rate: <span class="change {change_class}">{arrow} {abs(change_pct):.2f}%</span>
-                ''')
-
-                if is_significant:
-                    self.html_parts.append(f''' <strong>⚠️ SIGNIFICANT CHANGE</strong> (threshold: {analysis['threshold']}%)''')
-
-                self.html_parts.append('<br>')
-
-            # License change
-            if license_analysis.get('has_previous_data'):
-                license_change = license_analysis.get('change_count', 0)
-                license_change_pct = license_analysis.get('change_percentage', 0)
-                is_significant_license = license_analysis.get('is_significant_change', False)
-                change_class = 'positive' if license_change > 0 else 'negative' if license_change < 0 else 'neutral'
-                arrow = '↑' if license_change > 0 else '↓' if license_change < 0 else '→'
-
-                self.html_parts.append(f'''
-                    Licensed Assets: <span class="change {change_class}">{arrow} {abs(license_change)} assets ({license_change_pct:+.2f}%)</span>
-                ''')
-
-                if is_significant_license:
-                    self.html_parts.append(f''' <strong>⚠️ SIGNIFICANT CHANGE</strong> (threshold: {license_analysis['threshold']}%)''')
-
-            self.html_parts.append('</div>')
-
-        self.html_parts.append('            </div>')
 
     def _add_agent_section(self, agent_data, analysis):
         total = agent_data.get('total_agents', 0)
@@ -589,29 +590,35 @@ class HTMLReporter:
         long_offline = agent_data.get('long_offline_agents', 0)
         threshold_days = agent_data.get('offline_threshold_days', 14)
 
-        status_class = 'success' if offline == 0 else 'warning' if offline < 10 else 'danger'
-
         self.html_parts.append(f'''
             <div class="section">
-                <h2>🤖 Agent Status</h2>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="label">Total Agents</div>
-                        <div class="value">{total}</div>
-                    </div>
-                    <div class="stat-card success">
-                        <div class="label">Online</div>
-                        <div class="value">{online}</div>
-                    </div>
-                    <div class="stat-card {status_class}">
-                        <div class="label">Offline</div>
-                        <div class="value">{offline}</div>
-                    </div>
-                    <div class="stat-card danger">
-                        <div class="label">Offline > {threshold_days} days</div>
-                        <div class="value">{long_offline}</div>
-                    </div>
-                </div>
+                <h2>Agents</h2>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th style="text-align: right;">Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total Agents</td>
+                            <td style="text-align: right;"><strong>{total}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Online</td>
+                            <td style="text-align: right;">{online}</td>
+                        </tr>
+                        <tr>
+                            <td>Offline</td>
+                            <td style="text-align: right;">{offline}</td>
+                        </tr>
+                        <tr>
+                            <td>Offline &gt; {threshold_days} days</td>
+                            <td style="text-align: right;">{long_offline}</td>
+                        </tr>
+                    </tbody>
+                </table>
 ''')
 
         if agent_data.get('long_offline_agent_list'):
@@ -640,17 +647,6 @@ class HTMLReporter:
                 </table>
 ''')
 
-        if analysis.get('has_previous_data'):
-            offline_change = analysis.get('offline_change', 0)
-            long_change = analysis.get('long_offline_change', 0)
-            self.html_parts.append(f'''
-                <div class="alert info">
-                    <strong>Change from previous run:</strong><br>
-                    Offline agents: {offline_change:+d}<br>
-                    Long-term offline: {long_change:+d}
-                </div>
-''')
-
         self.html_parts.append('            </div>')
 
     def _add_scanner_section(self, scanner_data, analysis):
@@ -658,25 +654,31 @@ class HTMLReporter:
         working = scanner_data.get('working_scanners', 0)
         problems = scanner_data.get('problem_scanners', 0)
 
-        status_class = 'success' if problems == 0 else 'warning' if problems < 3 else 'danger'
-
         self.html_parts.append(f'''
             <div class="section">
-                <h2>🖥️ Scanner Status</h2>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="label">Total Scanners</div>
-                        <div class="value">{total}</div>
-                    </div>
-                    <div class="stat-card success">
-                        <div class="label">Working</div>
-                        <div class="value">{working}</div>
-                    </div>
-                    <div class="stat-card {status_class}">
-                        <div class="label">Problems</div>
-                        <div class="value">{problems}</div>
-                    </div>
-                </div>
+                <h2>Scanners</h2>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th style="text-align: right;">Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total Scanners</td>
+                            <td style="text-align: right;"><strong>{total}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Working</td>
+                            <td style="text-align: right;">{working}</td>
+                        </tr>
+                        <tr>
+                            <td>Problems</td>
+                            <td style="text-align: right;">{problems}</td>
+                        </tr>
+                    </tbody>
+                </table>
 ''')
 
         if scanner_data.get('problem_scanner_list'):
@@ -725,63 +727,32 @@ class HTMLReporter:
         working = connector_data.get('working_connectors', 0)
         problems = connector_data.get('problem_connectors', 0)
 
-        status_class = 'success' if problems == 0 else 'warning' if problems < 3 else 'danger'
-
         self.html_parts.append(f'''
             <div class="section">
-                <h2>🔌 Connector Status</h2>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="label">Total Connectors</div>
-                        <div class="value">{total}</div>
-                    </div>
-                    <div class="stat-card success">
-                        <div class="label">Working</div>
-                        <div class="value">{working}</div>
-                    </div>
-                    <div class="stat-card {status_class}">
-                        <div class="label">Problems</div>
-                        <div class="value">{problems}</div>
-                    </div>
-                </div>
-''')
-
-        if connector_data.get('problem_connector_list'):
-            self.html_parts.append('''
-                <table>
+                <h2>Connectors</h2>
+                <table style="margin-bottom: 15px;">
                     <thead>
                         <tr>
-                            <th>Connector Name</th>
-                            <th>Status</th>
-                            <th>Type</th>
+                            <th></th>
+                            <th style="text-align: right;">Count</th>
                         </tr>
                     </thead>
                     <tbody>
-''')
-            for connector in connector_data['problem_connector_list']:
-                self.html_parts.append(f'''
                         <tr>
-                            <td>{connector['name']}</td>
-                            <td><span class="badge danger">{connector['status']}</span></td>
-                            <td>{connector.get('type', 'N/A')}</td>
+                            <td>Total Connectors</td>
+                            <td style="text-align: right;"><strong>{total}</strong></td>
                         </tr>
-''')
-            self.html_parts.append('''
+                        <tr>
+                            <td>Working</td>
+                            <td style="text-align: right;">{working}</td>
+                        </tr>
+                        <tr>
+                            <td>Problems</td>
+                            <td style="text-align: right;">{problems}</td>
+                        </tr>
                     </tbody>
                 </table>
 ''')
-
-        if analysis.get('has_previous_data'):
-            new_problems = analysis.get('new_problem_connectors', [])
-            recovered = analysis.get('recovered_connectors', [])
-
-            if new_problems or recovered:
-                self.html_parts.append('<div class="alert warning">')
-                if new_problems:
-                    self.html_parts.append(f'<strong>⚠️ NEW problem connectors:</strong> {len(new_problems)}<br>')
-                if recovered:
-                    self.html_parts.append(f'<strong>✓ Recovered connectors:</strong> {len(recovered)}')
-                self.html_parts.append('</div>')
 
         self.html_parts.append('            </div>')
 
@@ -796,7 +767,7 @@ class HTMLReporter:
 
         self.html_parts.append('''
             <div class="section">
-                <h2>📈 Historical Trends</h2>
+                <h2>Historical Trends</h2>
                 <div class="chart-grid">
                     <div class="chart-box">
                         <h3>Authentication Success Rate Over Time</h3>
@@ -817,9 +788,9 @@ class HTMLReporter:
                         </div>
                     </div>
                     <div class="chart-box">
-                        <h3>Scan Health Over Time</h3>
+                        <h3>Scanner Status Over Time</h3>
                         <div class="chart-container">
-                            <canvas id="scanChart"></canvas>
+                            <canvas id="scannerChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -959,23 +930,34 @@ class HTMLReporter:
                     }
                 });
 
-                // Scan Health Chart
-                const scanData = trendsData.scans || [];
-                const scanLabels = scanData.map(d => formatDate(d.timestamp));
-                const scanChart = new Chart(document.getElementById('scanChart'), {
-                    type: 'bar',
+                // Scanner Status Chart
+                const scannerData = trendsData.scanners || [];
+                const scannerLabels = scannerData.map(d => formatDate(d.timestamp));
+                const scannerChart = new Chart(document.getElementById('scannerChart'), {
+                    type: 'line',
                     data: {
-                        labels: scanLabels,
+                        labels: scannerLabels,
                         datasets: [
                             {
-                                label: 'Completed Scans',
-                                data: scanData.map(d => d.completed_scans),
-                                backgroundColor: '#1E2426'
+                                label: 'Working Scanners',
+                                data: scannerData.map(d => d.working_scanners),
+                                borderColor: '#1E2426',
+                                backgroundColor: 'rgba(30, 36, 38, 0.1)',
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointBackgroundColor: '#1E2426',
+                                pointRadius: 3
                             },
                             {
-                                label: 'Problem Scans',
-                                data: scanData.map(d => d.problem_scans),
-                                backgroundColor: '#E7FF00'
+                                label: 'Problem Scanners',
+                                data: scannerData.map(d => d.problem_scanners),
+                                borderColor: '#E7FF00',
+                                backgroundColor: 'rgba(231, 255, 0, 0.2)',
+                                tension: 0.3,
+                                borderWidth: 2,
+                                pointBackgroundColor: '#E7FF00',
+                                pointBorderColor: '#1E2426',
+                                pointRadius: 3
                             }
                         ]
                     },
@@ -988,7 +970,6 @@ class HTMLReporter:
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                stacked: false,
                                 grid: { color: '#e0e0e0' }
                             },
                             x: { grid: { display: false } }

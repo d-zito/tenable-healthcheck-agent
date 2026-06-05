@@ -65,11 +65,27 @@ class TrendsManager:
 
         # Extract scan metrics
         scans = current_data.get('scans', {})
+        scan_summary = scans.get('scan_summary', {})
+
+        # Calculate totals from scan_summary
+        total_completed = sum(s.get('completed_runs', 0) for s in scan_summary.values())
+        total_failed = sum(s.get('failed_runs', 0) for s in scan_summary.values())
+
         scan_point = {
             'timestamp': timestamp,
-            'total_scans': scans.get('total_scans', 0),
-            'problem_scans': len(scans.get('problem_scans', [])),
-            'completed_scans': len(scans.get('completed_scans', []))
+            'total_scans': scans.get('unique_scans', 0),
+            'total_launches': scans.get('total_launches', 0),
+            'problem_scans': total_failed,
+            'completed_scans': total_completed
+        }
+
+        # Extract scanner metrics
+        scanners = current_data.get('scanners', {})
+        scanner_point = {
+            'timestamp': timestamp,
+            'total_scanners': scanners.get('total_scanners', 0),
+            'working_scanners': scanners.get('working_scanners', 0),
+            'problem_scanners': scanners.get('problem_scanners', 0)
         }
 
         # Append to trends
@@ -78,21 +94,30 @@ class TrendsManager:
         trends['agents'].append(agent_point)
         trends['scans'].append(scan_point)
 
+        # Add scanners key if it doesn't exist (backward compatibility)
+        if 'scanners' not in trends:
+            trends['scanners'] = []
+        trends['scanners'].append(scanner_point)
+
         self._save_trends(trends)
         logger.info(f"Saved trend data point for {timestamp}")
 
-    def get_trends(self, metric_type=None, days=None):
+    def get_trends(self, metric_type=None, days=None, daily_aggregation=False):
         """
         Get trend data for charting.
 
         Args:
             metric_type: Optional filter ('authentication', 'license', 'agents', 'scans')
             days: Optional number of days to retrieve (default: all)
+            daily_aggregation: If True, returns only the last data point per day
 
         Returns:
             Dict of trend data or list if metric_type specified
         """
         trends = self._load_trends()
+
+        if daily_aggregation:
+            trends = self._aggregate_by_day(trends)
 
         if metric_type:
             data = trends.get(metric_type, [])
@@ -101,6 +126,44 @@ class TrendsManager:
 
         # TODO: Implement days filtering if needed
         return data
+
+    def _aggregate_by_day(self, trends):
+        """
+        Aggregate trend data to have one data point per day (the last run of each day).
+
+        Args:
+            trends: Dict containing trend data for each metric type
+
+        Returns:
+            Dict with same structure but only one data point per day
+        """
+        aggregated = {}
+
+        for metric_type, data_points in trends.items():
+            # Group by date (YYYY-MM-DD)
+            daily_data = {}
+
+            for point in data_points:
+                try:
+                    timestamp = datetime.fromisoformat(point['timestamp'])
+                    date_key = timestamp.strftime('%Y-%m-%d')
+
+                    # Keep the latest timestamp for each date
+                    if date_key not in daily_data or timestamp > datetime.fromisoformat(daily_data[date_key]['timestamp']):
+                        daily_data[date_key] = point
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"Skipping invalid data point in {metric_type}: {e}")
+                    continue
+
+            # Convert back to list, sorted by date
+            aggregated[metric_type] = [
+                daily_data[date_key]
+                for date_key in sorted(daily_data.keys())
+            ]
+
+            logger.debug(f"Aggregated {metric_type}: {len(data_points)} points → {len(aggregated[metric_type])} daily points")
+
+        return aggregated
 
     def _load_trends(self):
         """Load existing trends or create new structure."""
@@ -116,7 +179,8 @@ class TrendsManager:
             'authentication': [],
             'license': [],
             'agents': [],
-            'scans': []
+            'scans': [],
+            'scanners': []
         }
 
     def _save_trends(self, trends):
