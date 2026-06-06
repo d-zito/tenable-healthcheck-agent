@@ -5,6 +5,66 @@ class HTMLReporter:
     def __init__(self):
         self.html_parts = []
 
+    def _get_historical_data(self, trends_data):
+        """Extract data from 7 and 30 days ago for comparison columns."""
+        if not trends_data:
+            return None
+
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        seven_days_ago = now - timedelta(days=7)
+        thirty_days_ago = now - timedelta(days=30)
+
+        def find_closest_data_point(data_points, target_date):
+            """Find the data point closest to the target date."""
+            if not data_points:
+                return None
+
+            closest = None
+            min_diff = None
+
+            for point in data_points:
+                try:
+                    point_date = datetime.fromisoformat(point['timestamp'])
+                    diff = abs((point_date - target_date).total_seconds())
+
+                    if min_diff is None or diff < min_diff:
+                        min_diff = diff
+                        closest = point
+                except (ValueError, KeyError):
+                    continue
+
+            # Only return if within 2 days of target
+            if closest and min_diff is not None and min_diff <= (2 * 24 * 60 * 60):
+                return closest
+            return None
+
+        historical = {
+            'authentication': {
+                '7_days': find_closest_data_point(trends_data.get('authentication', []), seven_days_ago),
+                '30_days': find_closest_data_point(trends_data.get('authentication', []), thirty_days_ago)
+            },
+            'license': {
+                '7_days': find_closest_data_point(trends_data.get('license', []), seven_days_ago),
+                '30_days': find_closest_data_point(trends_data.get('license', []), thirty_days_ago)
+            },
+            'agents': {
+                '7_days': find_closest_data_point(trends_data.get('agents', []), seven_days_ago),
+                '30_days': find_closest_data_point(trends_data.get('agents', []), thirty_days_ago)
+            },
+            'scanners': {
+                '7_days': find_closest_data_point(trends_data.get('scanners', []), seven_days_ago),
+                '30_days': find_closest_data_point(trends_data.get('scanners', []), thirty_days_ago)
+            },
+            'connectors': {
+                '7_days': find_closest_data_point(trends_data.get('connectors', []), seven_days_ago),
+                '30_days': find_closest_data_point(trends_data.get('connectors', []), thirty_days_ago)
+            }
+        }
+
+        return historical
+
     def generate(self, run_data, analysis_results, claude_analysis=None, trends_data=None):
         timestamp = run_data.get('timestamp', 'Unknown')
         data = run_data.get('data', {})
@@ -18,6 +78,9 @@ class HTMLReporter:
                 formatted_timestamp = timestamp
         else:
             formatted_timestamp = timestamp
+
+        # Extract historical data (7 and 30 days ago)
+        historical_data = self._get_historical_data(trends_data)
 
         self._add_header(formatted_timestamp)
 
@@ -33,10 +96,10 @@ class HTMLReporter:
 
         # Wrap the 4 status sections in a 2-column grid
         self.html_parts.append('<div class="status-grid">')
-        self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}), analysis_results.get('license', {}))
-        self._add_agent_section(data.get('agents', {}), analysis_results.get('agents', {}))
-        self._add_scanner_section(data.get('scanners', {}), analysis_results.get('scanners', {}))
-        self._add_connector_section(data.get('connectors', {}), analysis_results.get('connectors', {}))
+        self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}), analysis_results.get('license', {}), historical_data)
+        self._add_agent_section(data.get('agents', {}), analysis_results.get('agents', {}), historical_data)
+        self._add_scanner_section(data.get('scanners', {}), analysis_results.get('scanners', {}), historical_data)
+        self._add_connector_section(data.get('connectors', {}), analysis_results.get('connectors', {}), historical_data)
         self.html_parts.append('</div>')
 
         self._add_footer()
@@ -520,7 +583,7 @@ class HTMLReporter:
         if agent_scans:
             render_scan_table(agent_scans, "Agent Scans", is_agent_table=True, show_overview=False)
 
-    def _add_asset_section(self, asset_data, analysis, license_analysis):
+    def _add_asset_section(self, asset_data, analysis, license_analysis, historical_data=None):
         total = asset_data.get('total_assets', 0)
         licensed = asset_data.get('licensed_assets', 0)
         unlicensed = asset_data.get('unlicensed_assets', 0)
@@ -529,6 +592,12 @@ class HTMLReporter:
         auth_failed = asset_data.get('auth_failed', 0)
         success_pct = asset_data.get('auth_succeeded_percentage', 0)
 
+        # Extract historical data if available
+        license_7d = historical_data.get('license', {}).get('7_days') if historical_data else None
+        license_30d = historical_data.get('license', {}).get('30_days') if historical_data else None
+        auth_7d = historical_data.get('authentication', {}).get('7_days') if historical_data else None
+        auth_30d = historical_data.get('authentication', {}).get('30_days') if historical_data else None
+
         self.html_parts.append(f'''
             <div class="section">
                 <h2>Assets & Licensing</h2>
@@ -536,21 +605,29 @@ class HTMLReporter:
                     <thead>
                         <tr>
                             <th></th>
-                            <th style="text-align: right;">Count</th>
+                            <th style="text-align: center;">Current</th>
+                            <th style="text-align: center;">7d Ago</th>
+                            <th style="text-align: center;">30d Ago</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Total Assets</td>
-                            <td style="text-align: right;"><strong>{total}</strong></td>
-                        </tr>
-                        <tr>
                             <td>Licensed (90d)</td>
-                            <td style="text-align: right;">{licensed}</td>
+                            <td style="text-align: center;">{licensed}</td>
+                            <td style="text-align: center;">{license_7d.get('total_licensed_assets', '-') if license_7d else '-'}</td>
+                            <td style="text-align: center;">{license_30d.get('total_licensed_assets', '-') if license_30d else '-'}</td>
                         </tr>
                         <tr>
                             <td>Unlicensed</td>
-                            <td style="text-align: right;">{unlicensed}</td>
+                            <td style="text-align: center;">{unlicensed}</td>
+                            <td style="text-align: center;">{license_7d.get('unlicensed_assets', '-') if license_7d else '-'}</td>
+                            <td style="text-align: center;">{license_30d.get('unlicensed_assets', '-') if license_30d else '-'}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #1E2426;">
+                            <td>Total Assets</td>
+                            <td style="text-align: center;">{total}</td>
+                            <td style="text-align: center;">{license_7d.get('total_assets', '-') if license_7d else '-'}</td>
+                            <td style="text-align: center;">{license_30d.get('total_assets', '-') if license_30d else '-'}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -562,33 +639,51 @@ class HTMLReporter:
                     <thead>
                         <tr>
                             <th></th>
-                            <th style="text-align: right;">Count</th>
+                            <th style="text-align: center;">Current</th>
+                            <th style="text-align: center;">7d Ago</th>
+                            <th style="text-align: center;">30d Ago</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Auth Succeeded</td>
-                            <td style="text-align: right;">{auth_succeeded} ({success_pct}%)</td>
-                        </tr>
-                        <tr>
                             <td>Auth Not Attempted</td>
-                            <td style="text-align: right;">{auth_not_attempted}</td>
+                            <td style="text-align: center;">{auth_not_attempted}</td>
+                            <td style="text-align: center;">{auth_7d.get('auth_not_attempted', '-') if auth_7d else '-'}</td>
+                            <td style="text-align: center;">{auth_30d.get('auth_not_attempted', '-') if auth_30d else '-'}</td>
                         </tr>
                         <tr>
                             <td>Auth Failed</td>
-                            <td style="text-align: right;">{auth_failed}</td>
+                            <td style="text-align: center;">{auth_failed}</td>
+                            <td style="text-align: center;">{auth_7d.get('auth_failed', '-') if auth_7d else '-'}</td>
+                            <td style="text-align: center;">{auth_30d.get('auth_failed', '-') if auth_30d else '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>Auth Succeeded</td>
+                            <td style="text-align: center;">{auth_succeeded}</td>
+                            <td style="text-align: center;">{auth_7d.get('auth_succeeded', '-') if auth_7d else '-'}</td>
+                            <td style="text-align: center;">{auth_30d.get('auth_succeeded', '-') if auth_30d else '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>Auth Succeeded %</td>
+                            <td style="text-align: center;">{success_pct}%</td>
+                            <td style="text-align: center;">{f"{auth_7d.get('auth_succeeded_pct', 0):.1f}%" if auth_7d else '-'}</td>
+                            <td style="text-align: center;">{f"{auth_30d.get('auth_succeeded_pct', 0):.1f}%" if auth_30d else '-'}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 ''')
 
-    def _add_agent_section(self, agent_data, analysis):
+    def _add_agent_section(self, agent_data, analysis, historical_data=None):
         total = agent_data.get('total_agents', 0)
         online = agent_data.get('online_agents', 0)
         offline = agent_data.get('offline_agents', 0)
         long_offline = agent_data.get('long_offline_agents', 0)
         threshold_days = agent_data.get('offline_threshold_days', 14)
+
+        # Extract historical data if available
+        agents_7d = historical_data.get('agents', {}).get('7_days') if historical_data else None
+        agents_30d = historical_data.get('agents', {}).get('30_days') if historical_data else None
 
         self.html_parts.append(f'''
             <div class="section">
@@ -597,25 +692,35 @@ class HTMLReporter:
                     <thead>
                         <tr>
                             <th></th>
-                            <th style="text-align: right;">Count</th>
+                            <th style="text-align: center;">Current</th>
+                            <th style="text-align: center;">7d Ago</th>
+                            <th style="text-align: center;">30d Ago</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Total Agents</td>
-                            <td style="text-align: right;"><strong>{total}</strong></td>
-                        </tr>
-                        <tr>
                             <td>Online</td>
-                            <td style="text-align: right;">{online}</td>
+                            <td style="text-align: center;">{online}</td>
+                            <td style="text-align: center;">{agents_7d.get('online_agents', '-') if agents_7d else '-'}</td>
+                            <td style="text-align: center;">{agents_30d.get('online_agents', '-') if agents_30d else '-'}</td>
                         </tr>
                         <tr>
                             <td>Offline</td>
-                            <td style="text-align: right;">{offline}</td>
+                            <td style="text-align: center;">{offline}</td>
+                            <td style="text-align: center;">{agents_7d.get('offline_agents', '-') if agents_7d else '-'}</td>
+                            <td style="text-align: center;">{agents_30d.get('offline_agents', '-') if agents_30d else '-'}</td>
                         </tr>
                         <tr>
                             <td>Offline &gt; {threshold_days} days</td>
-                            <td style="text-align: right;">{long_offline}</td>
+                            <td style="text-align: center;">{long_offline}</td>
+                            <td style="text-align: center;">{agents_7d.get('long_offline_agents', '-') if agents_7d else '-'}</td>
+                            <td style="text-align: center;">{agents_30d.get('long_offline_agents', '-') if agents_30d else '-'}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #1E2426;">
+                            <td>Total Agents</td>
+                            <td style="text-align: center;">{total}</td>
+                            <td style="text-align: center;">{agents_7d.get('total_agents', '-') if agents_7d else '-'}</td>
+                            <td style="text-align: center;">{agents_30d.get('total_agents', '-') if agents_30d else '-'}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -649,10 +754,14 @@ class HTMLReporter:
 
         self.html_parts.append('            </div>')
 
-    def _add_scanner_section(self, scanner_data, analysis):
+    def _add_scanner_section(self, scanner_data, analysis, historical_data=None):
         total = scanner_data.get('total_scanners', 0)
         working = scanner_data.get('working_scanners', 0)
         problems = scanner_data.get('problem_scanners', 0)
+
+        # Extract historical data if available
+        scanners_7d = historical_data.get('scanners', {}).get('7_days') if historical_data else None
+        scanners_30d = historical_data.get('scanners', {}).get('30_days') if historical_data else None
 
         self.html_parts.append(f'''
             <div class="section">
@@ -661,21 +770,29 @@ class HTMLReporter:
                     <thead>
                         <tr>
                             <th></th>
-                            <th style="text-align: right;">Count</th>
+                            <th style="text-align: center;">Current</th>
+                            <th style="text-align: center;">7d Ago</th>
+                            <th style="text-align: center;">30d Ago</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Total Scanners</td>
-                            <td style="text-align: right;"><strong>{total}</strong></td>
-                        </tr>
-                        <tr>
                             <td>Working</td>
-                            <td style="text-align: right;">{working}</td>
+                            <td style="text-align: center;">{working}</td>
+                            <td style="text-align: center;">{scanners_7d.get('working_scanners', '-') if scanners_7d else '-'}</td>
+                            <td style="text-align: center;">{scanners_30d.get('working_scanners', '-') if scanners_30d else '-'}</td>
                         </tr>
                         <tr>
                             <td>Problems</td>
-                            <td style="text-align: right;">{problems}</td>
+                            <td style="text-align: center;">{problems}</td>
+                            <td style="text-align: center;">{scanners_7d.get('problem_scanners', '-') if scanners_7d else '-'}</td>
+                            <td style="text-align: center;">{scanners_30d.get('problem_scanners', '-') if scanners_30d else '-'}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #1E2426;">
+                            <td>Total Scanners</td>
+                            <td style="text-align: center;">{total}</td>
+                            <td style="text-align: center;">{scanners_7d.get('total_scanners', '-') if scanners_7d else '-'}</td>
+                            <td style="text-align: center;">{scanners_30d.get('total_scanners', '-') if scanners_30d else '-'}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -722,10 +839,14 @@ class HTMLReporter:
 
         self.html_parts.append('            </div>')
 
-    def _add_connector_section(self, connector_data, analysis):
+    def _add_connector_section(self, connector_data, analysis, historical_data=None):
         total = connector_data.get('total_connectors', 0)
         working = connector_data.get('working_connectors', 0)
         problems = connector_data.get('problem_connectors', 0)
+
+        # Extract historical data if available
+        connectors_7d = historical_data.get('connectors', {}).get('7_days') if historical_data else None
+        connectors_30d = historical_data.get('connectors', {}).get('30_days') if historical_data else None
 
         self.html_parts.append(f'''
             <div class="section">
@@ -734,21 +855,29 @@ class HTMLReporter:
                     <thead>
                         <tr>
                             <th></th>
-                            <th style="text-align: right;">Count</th>
+                            <th style="text-align: center;">Current</th>
+                            <th style="text-align: center;">7d Ago</th>
+                            <th style="text-align: center;">30d Ago</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Total Connectors</td>
-                            <td style="text-align: right;"><strong>{total}</strong></td>
-                        </tr>
-                        <tr>
                             <td>Working</td>
-                            <td style="text-align: right;">{working}</td>
+                            <td style="text-align: center;">{working}</td>
+                            <td style="text-align: center;">{connectors_7d.get('working_connectors', '-') if connectors_7d else '-'}</td>
+                            <td style="text-align: center;">{connectors_30d.get('working_connectors', '-') if connectors_30d else '-'}</td>
                         </tr>
                         <tr>
                             <td>Problems</td>
-                            <td style="text-align: right;">{problems}</td>
+                            <td style="text-align: center;">{problems}</td>
+                            <td style="text-align: center;">{connectors_7d.get('problem_connectors', '-') if connectors_7d else '-'}</td>
+                            <td style="text-align: center;">{connectors_30d.get('problem_connectors', '-') if connectors_30d else '-'}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #1E2426;">
+                            <td>Total Connectors</td>
+                            <td style="text-align: center;">{total}</td>
+                            <td style="text-align: center;">{connectors_7d.get('total_connectors', '-') if connectors_7d else '-'}</td>
+                            <td style="text-align: center;">{connectors_30d.get('total_connectors', '-') if connectors_30d else '-'}</td>
                         </tr>
                     </tbody>
                 </table>

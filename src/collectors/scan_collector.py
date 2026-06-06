@@ -19,8 +19,8 @@ class ScanCollector:
         Returns:
             dict with scan statistics and history
         """
-        scans_data = self.client.get_scans()
-        scans = scans_data.get('scans', [])
+        # Get all scans using pytenable's list() method to get policy_id
+        scans = list(self.client.tio.scans.list())
 
         cutoff_time = datetime.now(timezone.utc) - timedelta(days=days_back)
         cutoff_timestamp = int(cutoff_time.timestamp())
@@ -40,12 +40,13 @@ class ScanCollector:
             scan_id = scan.get('id')
             scan_name = scan.get('name')
             last_modification_date = scan.get('last_modification_date', 0)
+            policy_id = scan.get('policy_id')
+            is_scan_enabled = scan.get('enabled', True)
 
-            # Check if we need to fetch scan details (enabled status, policy, type, and agent launch type)
+            # Check if we need to fetch details for scan_type and agent_scan_launch_type
             # Only fetch if scan was modified since last run, or we don't have cached data
             need_details = True
             cached_policy = None
-            cached_enabled = True
             cached_scan_type = None
             cached_agent_launch_type = None
 
@@ -54,42 +55,42 @@ class ScanCollector:
                 previous_last_mod = previous_scan_data.get('last_modification_date', 0)
 
                 # If scan hasn't been modified, use cached data
-                # BUT: always fetch if we don't have scan_type or agent_scan_launch_type yet (new fields)
                 if last_modification_date == previous_last_mod:
                     cached_policy = previous_scan_data.get('policy')
-                    cached_enabled = previous_scan_data.get('is_enabled', True)
                     cached_scan_type = previous_scan_data.get('scan_type')
                     cached_agent_launch_type = previous_scan_data.get('agent_scan_launch_type')
 
-                    # If we have all new fields cached, use cache; otherwise fetch
+                    # If we have all fields cached, use cache; otherwise fetch
                     if 'scan_type' in previous_scan_data and 'agent_scan_launch_type' in previous_scan_data:
                         need_details = False
                         logger.debug(f"    Using cached data for scan '{scan_name}' (no modifications)")
                     else:
                         logger.debug(f"    Fetching scan details for '{scan_name}' (missing fields in cache)")
 
-            is_scan_enabled = cached_enabled
             policy_name = cached_policy
             scan_type = cached_scan_type
             agent_scan_launch_type = cached_agent_launch_type
 
+            # Get policy name from policy_id using policies.details()
+            if not policy_name and policy_id:
+                try:
+                    policy_details = self.client.tio.policies.details(policy_id)
+                    policy_name = policy_details.get('settings', {}).get('name', None)
+                    logger.debug(f"    Retrieved policy for scan '{scan_name}': {policy_name}")
+                except Exception as e:
+                    logger.debug(f"    Could not get policy details for scan '{scan_name}' (policy_id={policy_id}): {e}")
+
             if need_details:
                 try:
-                    # Use results() to get info section with policy, scan_type, and agent_scan_launch_type
+                    # Use results() to get info section with scan_type and agent_scan_launch_type
                     scan_results = self.client.tio.scans.results(scan_id)
                     info = scan_results.get('info', {})
-                    policy_name = info.get('policy', None)
                     scan_type = info.get('scan_type')  # None for agent scans
                     agent_scan_launch_type = info.get('agent_scan_launch_type')
 
-                    # Get enabled status from details() settings section
-                    scan_details = self.client.get_scan_details(scan_id)
-                    settings = scan_details.get('settings', {})
-                    is_scan_enabled = settings.get('enabled', True)
-
-                    logger.debug(f"    Fetched details for scan '{scan_name}': policy={policy_name}, type={scan_type}, agent_launch={agent_scan_launch_type}, enabled={is_scan_enabled}")
+                    logger.debug(f"    Fetched details for scan '{scan_name}': type={scan_type}, agent_launch={agent_scan_launch_type}")
                 except Exception as e:
-                    logger.debug(f"    Could not get scan details for '{scan_name}': {e}")
+                    logger.debug(f"    Could not get scan results for '{scan_name}': {e}")
 
             # Get scan history using pytenable's history() method
             try:

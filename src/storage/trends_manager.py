@@ -88,6 +88,15 @@ class TrendsManager:
             'problem_scanners': scanners.get('problem_scanners', 0)
         }
 
+        # Extract connector metrics
+        connectors = current_data.get('connectors', {})
+        connector_point = {
+            'timestamp': timestamp,
+            'total_connectors': connectors.get('total_connectors', 0),
+            'working_connectors': connectors.get('working_connectors', 0),
+            'problem_connectors': connectors.get('problem_connectors', 0)
+        }
+
         # Append to trends
         trends['authentication'].append(auth_point)
         trends['license'].append(license_point)
@@ -98,6 +107,11 @@ class TrendsManager:
         if 'scanners' not in trends:
             trends['scanners'] = []
         trends['scanners'].append(scanner_point)
+
+        # Add connectors key if it doesn't exist (backward compatibility)
+        if 'connectors' not in trends:
+            trends['connectors'] = []
+        trends['connectors'].append(connector_point)
 
         self._save_trends(trends)
         logger.info(f"Saved trend data point for {timestamp}")
@@ -180,7 +194,8 @@ class TrendsManager:
             'license': [],
             'agents': [],
             'scans': [],
-            'scanners': []
+            'scanners': [],
+            'connectors': []
         }
 
     def _save_trends(self, trends):
