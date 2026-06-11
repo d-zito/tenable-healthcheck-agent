@@ -53,7 +53,7 @@ class TenableClient:
         Get list of connectors via direct API call.
 
         Note: pytenable doesn't have a native connectors method, so we use
-        the raw API endpoint. Returns empty list if unavailable.
+        the raw API endpoint. Returns empty list if unavailable or unauthorized.
 
         Returns:
             list: List of connector dictionaries, or empty list if unavailable
@@ -75,7 +75,16 @@ class TenableClient:
             # Response object doesn't have expected methods
             logger.debug(f"Connector API response format unexpected: {e}")
             return []
+        except (KeyError, TypeError, ValueError) as e:
+            # Data parsing issues
+            logger.debug(f"Could not parse connector data: {type(e).__name__}: {e}")
+            return []
         except Exception as e:
-            # API error, permissions issue, or endpoint doesn't exist
-            logger.debug(f"Unable to retrieve connectors: {type(e).__name__}: {str(e)}")
+            # Check if it's a known permission/availability issue
+            error_str = str(e).lower()
+            if any(code in error_str for code in ['403', '404', 'forbidden', 'not found', 'unauthorized']):
+                logger.info("Connectors endpoint not available (may require specific permissions or product tier)")
+                return []
+            # Unexpected error - log for investigation but don't fail the whole run
+            logger.warning(f"Unexpected error retrieving connectors: {type(e).__name__}: {e}")
             return []

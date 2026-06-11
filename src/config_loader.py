@@ -31,12 +31,31 @@ class ConfigLoader:
             TENABLE_ACCESS_KEY: Tenable API access key
             TENABLE_SECRET_KEY: Tenable API secret key
             TENABLE_BASE_URL: Tenable base URL (optional, defaults to https://cloud.tenable.com)
+
+        Raises:
+            ValueError: If required credentials are missing
         """
         config_creds = self.config.get('tenable', {})
 
+        access_key = os.getenv('TENABLE_ACCESS_KEY', config_creds.get('access_key'))
+        secret_key = os.getenv('TENABLE_SECRET_KEY', config_creds.get('secret_key'))
+
+        # Validate that required credentials are present and not placeholder values
+        if not access_key or access_key.startswith('YOUR_'):
+            raise ValueError(
+                "Tenable access key not found or not configured. Please set TENABLE_ACCESS_KEY environment variable "
+                "or configure 'access_key' in config/config.json"
+            )
+
+        if not secret_key or secret_key.startswith('YOUR_'):
+            raise ValueError(
+                "Tenable secret key not found or not configured. Please set TENABLE_SECRET_KEY environment variable "
+                "or configure 'secret_key' in config/config.json"
+            )
+
         return {
-            'access_key': os.getenv('TENABLE_ACCESS_KEY', config_creds.get('access_key')),
-            'secret_key': os.getenv('TENABLE_SECRET_KEY', config_creds.get('secret_key')),
+            'access_key': access_key,
+            'secret_key': secret_key,
             'base_url': os.getenv('TENABLE_BASE_URL', config_creds.get('base_url', 'https://cloud.tenable.com'))
         }
 

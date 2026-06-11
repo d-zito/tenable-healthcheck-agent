@@ -199,12 +199,35 @@ class TrendsManager:
         }
 
     def _save_trends(self, trends):
-        """Save trends to file."""
+        """
+        Save trends to file using atomic write operation.
+
+        Args:
+            trends: Trends data to save
+
+        Raises:
+            IOError: If file write fails
+        """
+        temp_file = self.trends_file.with_suffix('.tmp')
+
         try:
-            with open(self.trends_file, 'w') as f:
+            # Write to temporary file first
+            with open(temp_file, 'w') as f:
                 json.dump(trends, f, indent=2)
-        except IOError as e:
+
+            # Atomic rename
+            temp_file.replace(self.trends_file)
+            logger.debug(f"Successfully saved trends data to {self.trends_file}")
+
+        except (IOError, OSError, TypeError, ValueError) as e:
             logger.error(f"Failed to save trends file: {e}")
+            # Clean up temp file if it exists
+            if temp_file.exists():
+                try:
+                    temp_file.unlink()
+                except OSError:
+                    pass
+            raise IOError(f"Failed to save trends data: {e}") from e
 
     def cleanup_old_trends(self, days=365):
         """

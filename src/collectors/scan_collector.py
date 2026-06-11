@@ -77,8 +77,11 @@ class ScanCollector:
                     policy_details = self.client.tio.policies.details(policy_id)
                     policy_name = policy_details.get('settings', {}).get('name', None)
                     logger.debug(f"    Retrieved policy for scan '{scan_name}': {policy_name}")
-                except Exception as e:
+                except (KeyError, AttributeError, TypeError) as e:
                     logger.debug(f"    Could not get policy details for scan '{scan_name}' (policy_id={policy_id}): {e}")
+                except Exception as e:
+                    # Unexpected error - log at warning level for visibility
+                    logger.warning(f"    Unexpected error getting policy details for scan '{scan_name}': {type(e).__name__}: {e}")
 
             if need_details:
                 try:
@@ -89,8 +92,11 @@ class ScanCollector:
                     agent_scan_launch_type = info.get('agent_scan_launch_type')
 
                     logger.debug(f"    Fetched details for scan '{scan_name}': type={scan_type}, agent_launch={agent_scan_launch_type}")
-                except Exception as e:
+                except (KeyError, AttributeError, TypeError) as e:
                     logger.debug(f"    Could not get scan results for '{scan_name}': {e}")
+                except Exception as e:
+                    # Unexpected error - log at warning level for visibility
+                    logger.warning(f"    Unexpected error getting scan results for '{scan_name}': {type(e).__name__}: {e}")
 
             # Get scan history using pytenable's history() method
             try:
@@ -179,8 +185,12 @@ class ScanCollector:
                         'success_runs': completed_runs  # Only completed = success
                     }
 
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
+                logger.warning(f"    Could not retrieve history for scan '{scan_name}': {type(e).__name__}: {e}")
+                continue
             except Exception as e:
-                logger.warning(f"    Could not retrieve history for scan '{scan_name}': {e}")
+                # Unexpected error - log with full details and continue processing other scans
+                logger.error(f"    Unexpected error processing scan '{scan_name}': {type(e).__name__}: {e}", exc_info=True)
                 continue
 
         return {

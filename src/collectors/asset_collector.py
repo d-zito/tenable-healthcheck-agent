@@ -64,14 +64,15 @@ class AssetCollector:
                                 else:
                                     # Latest attempt is newer than success, so it failed
                                     auth_failed += 1
-                            except (ValueError, AttributeError):
+                            except (ValueError, AttributeError, TypeError):
                                 # If we can't parse dates, assume failed
                                 auth_failed += 1
                         else:
                             # Has attempt but no success = failed
                             auth_failed += 1
-                except (ValueError, AttributeError):
+                except (ValueError, AttributeError, TypeError):
                     # Skip assets with invalid date formats
+                    logger.debug(f"Skipping asset with invalid date format: {asset.get('id', 'unknown')}")
                     pass
 
         # Calculate percentages based on recently scanned assets

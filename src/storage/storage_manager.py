@@ -1,7 +1,10 @@
 import json
 import os
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+logger = logging.getLogger('tenable-healthcheck')
 
 
 class StorageManager:
@@ -15,11 +18,24 @@ class StorageManager:
         self.retention_days = retention_days
 
     def save_run_data(self, data):
+        """
+        Save run data to JSON file using atomic write operation.
+
+        Args:
+            data: Run data to save
+
+        Returns:
+            Path: Filepath of saved data
+
+        Raises:
+            IOError: If file write fails
+        """
         # Use UTC for consistent timestamps across time zones
         now_utc = datetime.now(timezone.utc)
         timestamp = now_utc.strftime('%Y%m%d_%H%M%S')
         filename = f"healthcheck_{timestamp}.json"
         filepath = self.data_dir / filename
+        temp_filepath = filepath.with_suffix('.tmp')
 
         # Handle both old format (just data) and new format (data + analysis)
         if isinstance(data, dict) and 'data' in data:
@@ -35,8 +51,24 @@ class StorageManager:
                 'data': data
             }
 
-        with open(filepath, 'w') as f:
-            json.dump(run_data, f, indent=2)
+        try:
+            # Write to temporary file first
+            with open(temp_filepath, 'w') as f:
+                json.dump(run_data, f, indent=2)
+
+            # Atomic rename (POSIX systems only, but safe on Windows too)
+            temp_filepath.replace(filepath)
+            logger.debug(f"Successfully saved run data to {filepath}")
+
+        except (IOError, OSError, TypeError, ValueError) as e:
+            logger.error(f"Failed to save run data to {filepath}: {e}")
+            # Clean up temp file if it exists
+            if temp_filepath.exists():
+                try:
+                    temp_filepath.unlink()
+                except OSError:
+                    pass
+            raise IOError(f"Failed to save health check data: {e}") from e
 
         self._cleanup_old_data()
         return filepath
