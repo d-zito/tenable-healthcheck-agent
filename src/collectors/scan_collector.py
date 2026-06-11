@@ -33,6 +33,8 @@ class ScanCollector:
         total_launches = 0
         currently_running = 0
         scan_summary = {}  # {scan_name: {total_runs: X, failed_runs: Y}}
+        total_scans = 0
+        inactive_scans = 0
 
         logger.info(f"    Analyzing scan history for past {days_back} days...")
 
@@ -42,6 +44,14 @@ class ScanCollector:
             last_modification_date = scan.get('last_modification_date', 0)
             policy_id = scan.get('policy_id')
             is_scan_enabled = scan.get('enabled', True)
+
+            # Skip deleted/trashed scans
+            # Check for common deletion indicators
+            if scan.get('status') == 'deleted' or scan.get('is_deleted') or scan.get('trash'):
+                logger.debug(f"    Skipping deleted scan '{scan_name}'")
+                continue
+
+            total_scans += 1
 
             # Check if we need to fetch details for scan_type and agent_scan_launch_type
             # Only fetch if scan was modified since last run, or we don't have cached data
@@ -122,51 +132,52 @@ class ScanCollector:
                 if has_running:
                     currently_running += 1
 
-                # Process recent history
-                if recent_history:
-                    total_runs = len(recent_history)
+                # Process history (or create entry with zero runs if no recent history)
+                total_runs = len(recent_history)
 
-                    # Categorize statuses
-                    completed_runs = 0
-                    failed_runs = 0
-                    stopped_runs = 0
-                    disabled_runs = 0
-                    canceled_runs = 0
-                    paused_runs = 0
-                    running_count = 0
-                    disabled_entries = []
+                # Categorize statuses
+                completed_runs = 0
+                failed_runs = 0
+                stopped_runs = 0
+                disabled_runs = 0
+                canceled_runs = 0
+                paused_runs = 0
+                running_count = 0
+                disabled_entries = []
 
-                    for h in recent_history:
-                        status = h.get('status', '').lower()
-                        time_start = h.get('time_start', 0)
+                for h in recent_history:
+                    status = h.get('status', '').lower()
+                    time_start = h.get('time_start', 0)
 
-                        if status == 'completed':
-                            completed_runs += 1
-                        elif status == 'running':
-                            running_count += 1
-                        elif status == 'disabled':
-                            disabled_runs += 1
-                            # Store disabled entry with date
-                            disabled_entries.append({
-                                'date': datetime.fromtimestamp(time_start).strftime('%Y-%m-%d') if time_start else 'Unknown',
-                                'timestamp': time_start
-                            })
-                        elif status == 'stopped':
-                            stopped_runs += 1
-                        elif status in ['canceled', 'cancelled']:
-                            canceled_runs += 1
-                        elif status == 'paused':
-                            paused_runs += 1
-                        elif status in ['aborted', 'error', 'failed']:
-                            # Actual failures
-                            failed_runs += 1
-                        else:
-                            # Unknown status - log it and count as potential failure
-                            logger.debug(f"    Unknown scan status '{status}' for scan '{scan_name}'")
-                            failed_runs += 1
+                    if status == 'completed':
+                        completed_runs += 1
+                    elif status == 'running':
+                        running_count += 1
+                    elif status == 'disabled':
+                        disabled_runs += 1
+                        # Store disabled entry with date
+                        disabled_entries.append({
+                            'date': datetime.fromtimestamp(time_start).strftime('%Y-%m-%d') if time_start else 'Unknown',
+                            'timestamp': time_start
+                        })
+                    elif status == 'stopped':
+                        stopped_runs += 1
+                    elif status in ['canceled', 'cancelled']:
+                        canceled_runs += 1
+                    elif status == 'paused':
+                        paused_runs += 1
+                    elif status in ['aborted', 'error', 'failed']:
+                        # Actual failures
+                        failed_runs += 1
+                    else:
+                        # Unknown status - log it and count as potential failure
+                        logger.debug(f"    Unknown scan status '{status}' for scan '{scan_name}'")
+                        failed_runs += 1
 
-                    total_launches += total_runs
+                total_launches += total_runs
 
+                # Only add scan to summary if it has runs in the past N days
+                if total_runs > 0:
                     scan_summary[scan_name] = {
                         'scan_id': scan_id,
                         'scan_type': scan_type,
@@ -184,6 +195,9 @@ class ScanCollector:
                         'last_modification_date': last_modification_date,
                         'success_runs': completed_runs  # Only completed = success
                     }
+                else:
+                    # Count scans with no activity
+                    inactive_scans += 1
 
             except (KeyError, AttributeError, TypeError, ValueError) as e:
                 logger.warning(f"    Could not retrieve history for scan '{scan_name}': {type(e).__name__}: {e}")
@@ -198,5 +212,7 @@ class ScanCollector:
             'total_launches': total_launches,
             'currently_running': currently_running,
             'unique_scans': len(scan_summary),
+            'total_scans': total_scans,
+            'inactive_scans': inactive_scans,
             'scan_summary': scan_summary
         }

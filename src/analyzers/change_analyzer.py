@@ -157,3 +157,37 @@ class ChangeAnalyzer:
             'recovered_connectors': recovered,
             'ongoing_problem_connectors': [c for c in current_problems if c['id'] in prev_problem_ids]
         }
+
+    def analyze_users(self, current_data, previous_data):
+        if not previous_data:
+            return {
+                'has_previous_data': False,
+                'message': 'First run - no previous data to compare'
+            }
+
+        current_total = current_data.get('total_users', 0)
+        current_enabled = current_data.get('enabled_users', 0)
+        current_disabled = current_data.get('disabled_users', 0)
+        current_new = current_data.get('new_users_30_days', 0)
+        current_no_login = current_data.get('enabled_no_login_30_days', 0)
+
+        prev_total = previous_data.get('data', {}).get('users', {}).get('total_users', 0)
+        prev_enabled = previous_data.get('data', {}).get('users', {}).get('enabled_users', 0)
+        prev_disabled = previous_data.get('data', {}).get('users', {}).get('disabled_users', 0)
+        prev_no_login = previous_data.get('data', {}).get('users', {}).get('enabled_no_login_30_days', 0)
+
+        return {
+            'has_previous_data': True,
+            'current_total': current_total,
+            'previous_total': prev_total,
+            'total_change': current_total - prev_total,
+            'current_enabled': current_enabled,
+            'previous_enabled': prev_enabled,
+            'enabled_change': current_enabled - prev_enabled,
+            'current_disabled': current_disabled,
+            'previous_disabled': prev_disabled,
+            'disabled_change': current_disabled - prev_disabled,
+            'current_no_login': current_no_login,
+            'previous_no_login': prev_no_login,
+            'no_login_change': current_no_login - prev_no_login
+        }

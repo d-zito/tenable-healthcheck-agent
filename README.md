@@ -10,6 +10,7 @@ An open-source health monitoring tool for Tenable One that tracks scanning healt
 - 🤖 **Agent Status** - Monitor offline agents (flags agents offline 14+ days)
 - 🖥️ **Scanner Health** - Track scanner status and detect issues
 - 🔌 **Connector Health** - Monitor connector status
+- 👥 **User Management** - Track user accounts, roles, and login activity
 - 🧠 **AI Analysis** - Claude-powered insights and recommendations
 - 📊 **Historical Tracking** - Compare runs over time to detect trends
 
@@ -211,6 +212,21 @@ Agents offline > 14 days:
 Name              Status    Last Connect
 Agent-Server-05   offline   2026-05-01
 Agent-Laptop-23   offline   2026-04-28
+
+USER ACCOUNTS
+-------------
+Total users: 45
+Enabled users: 38
+Disabled users: 7
+New users (past 30 days): 2
+Enabled users with no login in 30+ days: 5
+
+--- User Roles ---
+Role                   Count
+Administrator          8
+Scan Manager          12
+Scan Operator         15
+Basic User             10
 
 AI ANALYSIS (Claude)
 --------------------

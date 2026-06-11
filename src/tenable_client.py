@@ -48,6 +48,28 @@ class TenableClient:
         scanners = list(self.tio.scanners.list())
         return scanners
 
+    def list_users(self):
+        """
+        Get list of users using pytenable users.list() method.
+
+        Returns:
+            list: List of user dictionaries
+        """
+        try:
+            users = list(self.tio.users.list())
+            logger.debug(f"Retrieved {len(users)} users from API")
+            return users
+        except (KeyError, TypeError, ValueError) as e:
+            logger.warning(f"Could not parse user data: {type(e).__name__}: {e}")
+            return []
+        except Exception as e:
+            error_str = str(e).lower()
+            if any(code in error_str for code in ['403', 'forbidden', 'unauthorized']):
+                logger.info("Users endpoint not available (may require Administrator permissions)")
+                return []
+            logger.warning(f"Unexpected error retrieving users: {type(e).__name__}: {e}")
+            return []
+
     def list_connectors(self):
         """
         Get list of connectors via direct API call.

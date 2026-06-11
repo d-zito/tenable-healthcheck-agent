@@ -22,6 +22,8 @@ class ConsoleReporter:
     def print_scans(self, scan_data, analysis):
         days_back = scan_data.get('days_back', 30)
         scan_summary = scan_data.get('scan_summary', {})
+        inactive_scans = scan_data.get('inactive_scans', 0)
+        total_scans = scan_data.get('total_scans', 0)
 
         # Split scans by type
         # Agent scans: scan_type is None or 'agent'
@@ -46,8 +48,10 @@ class ConsoleReporter:
 
                 print(f"Total launches: {total_launches}")
                 print(f"Currently running: {currently_running}")
-                print(f"Unique scans: {len(scans_dict)}")
+                print(f"Scans with activity: {len(scans_dict)}")
                 print(f"Total failed runs: {total_failures}")
+                if inactive_scans > 0:
+                    print(f"Scans configured but not launched in past {days_back} days: {inactive_scans}")
                 print()
 
             sorted_scans = sorted(
@@ -236,6 +240,42 @@ class ConsoleReporter:
 
             if analysis.get('ongoing_problem_connectors'):
                 print(f"\nOngoing issues: {len(analysis['ongoing_problem_connectors'])} connectors")
+
+    def print_users(self, user_data, analysis):
+        self.print_section("USER ACCOUNTS")
+
+        print(f"Total users: {user_data['total_users']}")
+        print(f"Enabled users: {user_data['enabled_users']}")
+        print(f"Disabled users: {user_data['disabled_users']}")
+        print(f"Enabled users with no login in 30+ days: {user_data['enabled_no_login_30_days']}")
+
+        # Show role breakdown
+        if user_data['role_counts']:
+            print(f"\n--- User Roles ---")
+            role_data = []
+            for role, count in sorted(user_data['role_counts'].items(), key=lambda x: x[1], reverse=True):
+                role_data.append([role, count])
+            print(tabulate(role_data, headers=['Role', 'Count'], tablefmt='simple'))
+
+        # Show users with no recent login (limit to top 10)
+        if user_data['enabled_no_login_list']:
+            print(f"\n--- Enabled Users - No Login in 30+ Days (Top 10) ---")
+            limited_list = user_data['enabled_no_login_list'][:10]
+            table_data = [
+                [u['username'], u['name'], u['last_login']]
+                for u in limited_list
+            ]
+            print(tabulate(table_data, headers=['Username', 'Name', 'Last Login'], tablefmt='simple'))
+
+            if len(user_data['enabled_no_login_list']) > 10:
+                print(f"\n... and {len(user_data['enabled_no_login_list']) - 10} more")
+
+        if analysis.get('has_previous_data'):
+            print(f"\nChange from previous run:")
+            print(f"  Total users: {analysis['total_change']:+d}")
+            print(f"  Enabled: {analysis['enabled_change']:+d}")
+            print(f"  Disabled: {analysis['disabled_change']:+d}")
+            print(f"  No login 30+ days: {analysis['no_login_change']:+d}")
 
     def print_claude_analysis(self, claude_results):
         self.print_section("AI ANALYSIS (Claude)")

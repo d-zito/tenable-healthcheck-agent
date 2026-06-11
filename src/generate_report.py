@@ -109,7 +109,8 @@ def main():
         'license': analyzer.analyze_license(current_data.get('assets', {}), previous_data),
         'agents': analyzer.analyze_agents(current_data.get('agents', {}), previous_data),
         'scanners': analyzer.analyze_scanners(current_data.get('scanners', {}), previous_data),
-        'connectors': analyzer.analyze_connectors(current_data.get('connectors', {}), previous_data)
+        'connectors': analyzer.analyze_connectors(current_data.get('connectors', {}), previous_data),
+        'users': analyzer.analyze_users(current_data.get('users', {}), previous_data)
     }
 
     # Handle Claude analysis

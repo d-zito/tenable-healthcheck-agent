@@ -60,6 +60,10 @@ class HTMLReporter:
             'connectors': {
                 '7_days': find_closest_data_point(trends_data.get('connectors', []), seven_days_ago),
                 '30_days': find_closest_data_point(trends_data.get('connectors', []), thirty_days_ago)
+            },
+            'users': {
+                '7_days': find_closest_data_point(trends_data.get('users', []), seven_days_ago),
+                '30_days': find_closest_data_point(trends_data.get('users', []), thirty_days_ago)
             }
         }
 
@@ -94,12 +98,13 @@ class HTMLReporter:
 
         self._add_scan_section(data.get('scans', {}), analysis_results.get('scans', {}))
 
-        # Wrap the 4 status sections in a 2-column grid
+        # Wrap the status sections in a 2-column grid
         self.html_parts.append('<div class="status-grid">')
         self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}), analysis_results.get('license', {}), historical_data)
         self._add_agent_section(data.get('agents', {}), analysis_results.get('agents', {}), historical_data)
         self._add_scanner_section(data.get('scanners', {}), analysis_results.get('scanners', {}), historical_data)
         self._add_connector_section(data.get('connectors', {}), analysis_results.get('connectors', {}), historical_data)
+        self._add_user_section(data.get('users', {}), analysis_results.get('users', {}), historical_data)
         self.html_parts.append('</div>')
 
         self._add_footer()
@@ -459,6 +464,7 @@ class HTMLReporter:
     def _add_scan_section(self, scan_data, analysis):
         days_back = scan_data.get('days_back', 7)
         scan_summary = scan_data.get('scan_summary', {})
+        inactive_scans = scan_data.get('inactive_scans', 0)
 
         # Split scans by type
         # Agent scans: scan_type is None or 'agent'
@@ -573,6 +579,17 @@ class HTMLReporter:
             self.html_parts.append('''
                     </tbody>
                 </table>
+''')
+
+            # Add inactive scans message if applicable
+            if show_overview and inactive_scans > 0:
+                self.html_parts.append(f'''
+                <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-left: 3px solid #666; font-size: 13px;">
+                    <strong>{inactive_scans}</strong> scan(s) are configured but have not launched in the past {days_back} days
+                </div>
+''')
+
+            self.html_parts.append('''
                 </div>
 ''')
 
@@ -885,6 +902,126 @@ class HTMLReporter:
 
         self.html_parts.append('            </div>')
 
+    def _add_user_section(self, user_data, analysis, historical_data=None):
+        total = user_data.get('total_users', 0)
+        enabled = user_data.get('enabled_users', 0)
+        disabled = user_data.get('disabled_users', 0)
+        no_login = user_data.get('enabled_no_login_30_days', 0)
+        role_counts = user_data.get('role_counts', {})
+        no_login_list = user_data.get('enabled_no_login_list', [])
+
+        # Extract historical data if available
+        users_7d = historical_data.get('users', {}).get('7_days') if historical_data else None
+        users_30d = historical_data.get('users', {}).get('30_days') if historical_data else None
+
+        self.html_parts.append(f'''
+            <div class="section">
+                <h2>User Accounts</h2>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th style="text-align: center;">Current</th>
+                            <th style="text-align: center;">7d Ago</th>
+                            <th style="text-align: center;">30d Ago</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Enabled Users</td>
+                            <td style="text-align: center;">{enabled}</td>
+                            <td style="text-align: center;">{users_7d.get('enabled_users', '-') if users_7d else '-'}</td>
+                            <td style="text-align: center;">{users_30d.get('enabled_users', '-') if users_30d else '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>Disabled Users</td>
+                            <td style="text-align: center;">{disabled}</td>
+                            <td style="text-align: center;">{users_7d.get('disabled_users', '-') if users_7d else '-'}</td>
+                            <td style="text-align: center;">{users_30d.get('disabled_users', '-') if users_30d else '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>No Login 30+ Days</td>
+                            <td style="text-align: center;">{no_login}</td>
+                            <td style="text-align: center;">{users_7d.get('enabled_no_login_30_days', '-') if users_7d else '-'}</td>
+                            <td style="text-align: center;">{users_30d.get('enabled_no_login_30_days', '-') if users_30d else '-'}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #1E2426;">
+                            <td>Total Users</td>
+                            <td style="text-align: center;">{total}</td>
+                            <td style="text-align: center;">{users_7d.get('total_users', '-') if users_7d else '-'}</td>
+                            <td style="text-align: center;">{users_30d.get('total_users', '-') if users_30d else '-'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+''')
+
+        # Add role breakdown if we have roles
+        if role_counts:
+            self.html_parts.append('''
+                <div style="margin-top: 15px;">
+                    <h3 style="font-size: 13px; margin-bottom: 8px; color: #1E2426;">Users by Role</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Role</th>
+                                <th style="text-align: center;">Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+''')
+            # Sort roles by count descending
+            sorted_roles = sorted(role_counts.items(), key=lambda x: x[1], reverse=True)
+            for role, count in sorted_roles:
+                self.html_parts.append(f'''
+                            <tr>
+                                <td>{role}</td>
+                                <td style="text-align: center;">{count}</td>
+                            </tr>
+''')
+            self.html_parts.append('''
+                        </tbody>
+                    </table>
+                </div>
+''')
+
+        # Add users with no recent login (limited to top 10)
+        if no_login_list:
+            limited_list = no_login_list[:10]
+            self.html_parts.append(f'''
+                <div style="margin-top: 15px;">
+                    <h3 style="font-size: 13px; margin-bottom: 8px; color: #1E2426;">Enabled Users - No Login in 30+ Days (Top 10)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th style="text-align: center;">Last Login</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+''')
+            for user in limited_list:
+                self.html_parts.append(f'''
+                            <tr>
+                                <td>{user['username']}</td>
+                                <td>{user['name']}</td>
+                                <td style="text-align: center;">{user['last_login']}</td>
+                            </tr>
+''')
+            self.html_parts.append('''
+                        </tbody>
+                    </table>
+''')
+            if len(no_login_list) > 10:
+                self.html_parts.append(f'''
+                    <div style="margin-top: 8px; font-size: 12px; color: #666;">
+                        ... and {len(no_login_list) - 10} more users
+                    </div>
+''')
+            self.html_parts.append('                </div>')
+
+        self.html_parts.append('            </div>')
+
     def _add_trends_section(self, trends_data):
         """Add trend charts section with historical data visualization."""
         import json
@@ -934,20 +1071,71 @@ class HTMLReporter:
                     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 }
 
+                // Helper to fill in missing days for 30-day chart
+                function fillLast30Days(data, valueKeys) {
+                    if (!data || data.length === 0) return { labels: [], datasets: {} };
+
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const thirtyDaysAgo = new Date(today);
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+                    // Create a map of existing data by date
+                    const dataMap = {};
+                    data.forEach(point => {
+                        const date = new Date(point.timestamp);
+                        date.setHours(0, 0, 0, 0);
+                        const dateKey = date.toISOString().split('T')[0];
+                        dataMap[dateKey] = point;
+                    });
+
+                    // Fill in all 30 days
+                    const labels = [];
+                    const datasets = {};
+                    valueKeys.forEach(key => datasets[key] = []);
+
+                    let lastValues = {};
+                    valueKeys.forEach(key => lastValues[key] = 0);
+
+                    for (let i = 0; i <= 30; i++) {
+                        const currentDate = new Date(thirtyDaysAgo);
+                        currentDate.setDate(currentDate.getDate() + i);
+                        const dateKey = currentDate.toISOString().split('T')[0];
+
+                        labels.push(formatDate(currentDate.toISOString()));
+
+                        if (dataMap[dateKey]) {
+                            // Use actual data
+                            valueKeys.forEach(key => {
+                                const value = dataMap[dateKey][key] || 0;
+                                datasets[key].push(value);
+                                lastValues[key] = value;
+                            });
+                        } else {
+                            // Use last known value
+                            valueKeys.forEach(key => {
+                                datasets[key].push(lastValues[key]);
+                            });
+                        }
+                    }
+
+                    return { labels, datasets };
+                }
+
                 // Chart defaults for Tenable branding
                 Chart.defaults.font.family = "'Work Sans', sans-serif";
                 Chart.defaults.font.size = 11;
 
                 // Authentication Success Rate Chart
-                const authData = trendsData.authentication || [];
-                const authLabels = authData.map(d => formatDate(d.timestamp));
+                const authDataRaw = trendsData.authentication || [];
+                const authFilled = fillLast30Days(authDataRaw, ['auth_succeeded_pct']);
                 const authChart = new Chart(document.getElementById('authChart'), {
                     type: 'line',
                     data: {
-                        labels: authLabels,
+                        labels: authFilled.labels,
                         datasets: [{
                             label: 'Authentication Success %',
-                            data: authData.map(d => d.auth_succeeded_pct),
+                            data: authFilled.datasets.auth_succeeded_pct,
                             borderColor: '#1E2426',
                             backgroundColor: 'rgba(30, 36, 38, 0.1)',
                             tension: 0.3,
@@ -977,15 +1165,15 @@ class HTMLReporter:
                 });
 
                 // License Usage Chart
-                const licenseData = trendsData.license || [];
-                const licenseLabels = licenseData.map(d => formatDate(d.timestamp));
+                const licenseDataRaw = trendsData.license || [];
+                const licenseFilled = fillLast30Days(licenseDataRaw, ['total_licensed_assets']);
                 const licenseChart = new Chart(document.getElementById('licenseChart'), {
                     type: 'line',
                     data: {
-                        labels: licenseLabels,
+                        labels: licenseFilled.labels,
                         datasets: [{
                             label: 'Licensed Assets',
-                            data: licenseData.map(d => d.total_licensed_assets),
+                            data: licenseFilled.datasets.total_licensed_assets,
                             borderColor: '#1E2426',
                             backgroundColor: 'rgba(30, 36, 38, 0.1)',
                             tension: 0.3,
@@ -1013,16 +1201,16 @@ class HTMLReporter:
                 });
 
                 // Agent Status Chart
-                const agentData = trendsData.agents || [];
-                const agentLabels = agentData.map(d => formatDate(d.timestamp));
+                const agentDataRaw = trendsData.agents || [];
+                const agentFilled = fillLast30Days(agentDataRaw, ['online_agents', 'offline_agents']);
                 const agentChart = new Chart(document.getElementById('agentChart'), {
                     type: 'line',
                     data: {
-                        labels: agentLabels,
+                        labels: agentFilled.labels,
                         datasets: [
                             {
                                 label: 'Online Agents',
-                                data: agentData.map(d => d.online_agents),
+                                data: agentFilled.datasets.online_agents,
                                 borderColor: '#1E2426',
                                 backgroundColor: 'rgba(30, 36, 38, 0.1)',
                                 tension: 0.3,
@@ -1032,7 +1220,7 @@ class HTMLReporter:
                             },
                             {
                                 label: 'Offline Agents',
-                                data: agentData.map(d => d.offline_agents),
+                                data: agentFilled.datasets.offline_agents,
                                 borderColor: '#E7FF00',
                                 backgroundColor: 'rgba(231, 255, 0, 0.2)',
                                 tension: 0.3,
@@ -1052,6 +1240,10 @@ class HTMLReporter:
                         scales: {
                             y: {
                                 beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1,
+                                    callback: value => Math.floor(value)
+                                },
                                 grid: { color: '#e0e0e0' }
                             },
                             x: { grid: { display: false } }
@@ -1060,16 +1252,16 @@ class HTMLReporter:
                 });
 
                 // Scanner Status Chart
-                const scannerData = trendsData.scanners || [];
-                const scannerLabels = scannerData.map(d => formatDate(d.timestamp));
+                const scannerDataRaw = trendsData.scanners || [];
+                const scannerFilled = fillLast30Days(scannerDataRaw, ['working_scanners', 'problem_scanners']);
                 const scannerChart = new Chart(document.getElementById('scannerChart'), {
                     type: 'line',
                     data: {
-                        labels: scannerLabels,
+                        labels: scannerFilled.labels,
                         datasets: [
                             {
                                 label: 'Working Scanners',
-                                data: scannerData.map(d => d.working_scanners),
+                                data: scannerFilled.datasets.working_scanners,
                                 borderColor: '#1E2426',
                                 backgroundColor: 'rgba(30, 36, 38, 0.1)',
                                 tension: 0.3,
@@ -1079,7 +1271,7 @@ class HTMLReporter:
                             },
                             {
                                 label: 'Problem Scanners',
-                                data: scannerData.map(d => d.problem_scanners),
+                                data: scannerFilled.datasets.problem_scanners,
                                 borderColor: '#E7FF00',
                                 backgroundColor: 'rgba(231, 255, 0, 0.2)',
                                 tension: 0.3,
@@ -1099,6 +1291,10 @@ class HTMLReporter:
                         scales: {
                             y: {
                                 beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1,
+                                    callback: value => Math.floor(value)
+                                },
                                 grid: { color: '#e0e0e0' }
                             },
                             x: { grid: { display: false } }

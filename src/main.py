@@ -15,6 +15,7 @@ from collectors.asset_collector import AssetCollector
 from collectors.agent_collector import AgentCollector
 from collectors.scanner_collector import ScannerCollector
 from collectors.connector_collector import ConnectorCollector
+from collectors.user_collector import UserCollector
 
 from analyzers.change_analyzer import ChangeAnalyzer
 
@@ -52,6 +53,7 @@ def main():
     agent_collector = AgentCollector(client, thresholds.get('agent_offline_days', 14))
     scanner_collector = ScannerCollector(client)
     connector_collector = ConnectorCollector(client)
+    user_collector = UserCollector(client)
 
     logger.info("  • Collecting scan data (past 30 days)...")
     scan_data = scan_collector.collect(days_back=30, previous_run_data=previous_run)
@@ -68,12 +70,16 @@ def main():
     logger.info("  • Collecting connector data...")
     connector_data = connector_collector.collect()
 
+    logger.info("  • Collecting user data...")
+    user_data = user_collector.collect()
+
     current_data = {
         'scans': scan_data,
         'assets': asset_data,
         'agents': agent_data,
         'scanners': scanner_data,
-        'connectors': connector_data
+        'connectors': connector_data,
+        'users': user_data
     }
 
     logger.info("\nAnalyzing changes...")
@@ -85,7 +91,8 @@ def main():
         'license': analyzer.analyze_license(asset_data, previous_run),
         'agents': analyzer.analyze_agents(agent_data, previous_run),
         'scanners': analyzer.analyze_scanners(scanner_data, previous_run),
-        'connectors': analyzer.analyze_connectors(connector_data, previous_run)
+        'connectors': analyzer.analyze_connectors(connector_data, previous_run),
+        'users': analyzer.analyze_users(user_data, previous_run)
     }
 
     logger.info("\nSaving results...")
@@ -109,6 +116,7 @@ def main():
     reporter.print_agents(agent_data, analysis_results['agents'])
     reporter.print_scanners(scanner_data, analysis_results['scanners'])
     reporter.print_connectors(connector_data, analysis_results['connectors'])
+    reporter.print_users(user_data, analysis_results['users'])
 
     reporter.print_footer()
 
