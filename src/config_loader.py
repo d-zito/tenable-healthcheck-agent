@@ -1,18 +1,21 @@
+from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 
 class ConfigLoader:
-    def __init__(self, config_path=None):
+    def __init__(self, config_path: str | Path | None = None) -> None:
         if config_path is None:
             base_dir = Path(__file__).parent.parent
             config_path = base_dir / "config" / "config.json"
 
         self.config_path = Path(config_path)
-        self.config = self._load_config()
+        self.config: dict[str, Any] = self._load_config()
 
-    def _load_config(self):
+    def _load_config(self) -> dict[str, Any]:
         if not self.config_path.exists():
             raise FileNotFoundError(
                 f"Configuration file not found at {self.config_path}. "
@@ -22,7 +25,7 @@ class ConfigLoader:
         with open(self.config_path, 'r') as f:
             return json.load(f)
 
-    def get_tenable_credentials(self):
+    def get_tenable_credentials(self) -> dict[str, str]:
         """
         Get Tenable credentials from environment variables or config file.
         Environment variables take precedence over config file values.
@@ -40,7 +43,6 @@ class ConfigLoader:
         access_key = os.getenv('TENABLE_ACCESS_KEY', config_creds.get('access_key'))
         secret_key = os.getenv('TENABLE_SECRET_KEY', config_creds.get('secret_key'))
 
-        # Validate that required credentials are present and not placeholder values
         if not access_key or access_key.startswith('YOUR_'):
             raise ValueError(
                 "Tenable access key not found or not configured. Please set TENABLE_ACCESS_KEY environment variable "
@@ -59,11 +61,11 @@ class ConfigLoader:
             'base_url': os.getenv('TENABLE_BASE_URL', config_creds.get('base_url', 'https://cloud.tenable.com'))
         }
 
-    def get_thresholds(self):
+    def get_thresholds(self) -> dict[str, Any]:
         return self.config.get('thresholds', {})
 
-    def get_data_retention_days(self):
+    def get_data_retention_days(self) -> int:
         return self.config.get('data_retention_days', 90)
 
-    def use_claude_cli(self):
+    def use_claude_cli(self) -> bool:
         return self.config.get('claude', {}).get('use_cli', True)

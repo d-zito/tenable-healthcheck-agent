@@ -1,26 +1,29 @@
-import subprocess
+from __future__ import annotations
+
 import json
 import logging
+import subprocess
+from typing import Any
 
 logger = logging.getLogger('tenable-healthcheck')
 
 
 class ClaudeAnalyzer:
-    def __init__(self, use_cli=True):
+    def __init__(self, use_cli: bool = True) -> None:
         self.use_cli = use_cli
 
-    def analyze_health_report(self, current_data, analysis_results):
+    def analyze_health_report(self, current_data: dict[str, Any], analysis_results: dict[str, Any]) -> dict[str, Any]:
         prompt = self._build_analysis_prompt(current_data, analysis_results)
 
         if self.use_cli:
             return self._analyze_via_cli(prompt)
-        else:
-            return {
-                'summary': 'Claude API not configured. Install and configure Claude API keys to enable AI analysis.',
-                'recommendations': []
-            }
 
-    def _build_analysis_prompt(self, current_data, analysis_results):
+        return {
+            'summary': 'Claude API not configured. Install and configure Claude API keys to enable AI analysis.',
+            'recommendations': [],
+        }
+
+    def _build_analysis_prompt(self, current_data: dict[str, Any], analysis_results: dict[str, Any]) -> str:
         prompt = """You are analyzing a Tenable One health check report. Please provide:
 
 1. A brief executive summary of the overall health status
@@ -63,12 +66,8 @@ Remember: If scanners are all working and agents are all online, these are posit
 """
         return prompt
 
-    def _analyze_via_cli(self, prompt):
-        """
-        Analyze health data using Claude CLI.
-
-        Sends prompt via stdin to avoid command-line length limits.
-        """
+    def _analyze_via_cli(self, prompt: str) -> dict[str, Any]:
+        """Analyze health data using Claude CLI."""
         try:
             logger.debug("Sending health data to Claude CLI for analysis")
 
@@ -76,22 +75,18 @@ Remember: If scanners are all working and agents are all online, these are posit
                 ['claude', '-p', prompt],
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
             )
 
             if result.returncode == 0:
                 logger.debug("Claude analysis completed successfully")
-                # Try to parse JSON from the response
                 output = result.stdout.strip()
 
-                # Claude might wrap JSON in markdown code blocks
                 if '```json' in output:
-                    # Extract JSON from code block
                     start = output.find('```json') + 7
                     end = output.find('```', start)
                     output = output[start:end].strip()
                 elif '```' in output:
-                    # Generic code block
                     start = output.find('```') + 3
                     end = output.find('```', start)
                     output = output[start:end].strip()
@@ -99,7 +94,6 @@ Remember: If scanners are all working and agents are all online, these are posit
                 try:
                     return json.loads(output)
                 except json.JSONDecodeError as e:
-                    # If JSON parsing fails, return the raw text as summary
                     logger.warning(f"Claude response was not valid JSON: {e}")
                     logger.debug(f"Claude raw output: {result.stdout}")
                     return {
@@ -107,29 +101,22 @@ Remember: If scanners are all working and agents are all online, these are posit
                         'executive_summary': result.stdout,
                         'key_concerns': [],
                         'recommendations': [],
-                        'trends': []
+                        'trends': [],
                     }
             else:
                 logger.error(f"Claude CLI failed with exit code {result.returncode}")
                 logger.debug(f"Claude stderr: {result.stderr}")
-                return {
-                    'error': 'Claude CLI failed',
-                    'stderr': result.stderr
-                }
+                return {'error': 'Claude CLI failed', 'stderr': result.stderr}
 
         except subprocess.TimeoutExpired:
             logger.error("Claude analysis timed out after 60 seconds")
-            return {
-                'error': 'Claude analysis timed out'
-            }
+            return {'error': 'Claude analysis timed out'}
         except FileNotFoundError:
             logger.error("Claude CLI not found - is it installed?")
             return {
                 'error': 'Claude CLI not found. Please install Claude Code CLI.',
-                'help': 'Visit https://claude.ai/download to install Claude Code'
+                'help': 'Visit https://claude.ai/download to install Claude Code',
             }
         except Exception as e:
             logger.error(f"Unexpected error during Claude analysis: {e}", exc_info=True)
-            return {
-                'error': f'Unexpected error: {str(e)}'
-            }
+            return {'error': f'Unexpected error: {str(e)}'}

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any
 
 from logger import setup_logger
 from config_loader import ConfigLoader
@@ -22,7 +26,7 @@ from analyzers.change_analyzer import ChangeAnalyzer
 from reporters.console_reporter import ConsoleReporter
 
 
-def main():
+def main() -> None:
     logger.info("Starting Tenable One Health Check Agent...")
     logger.info("")
 
@@ -55,54 +59,63 @@ def main():
     connector_collector = ConnectorCollector(client)
     user_collector = UserCollector(client)
 
-    logger.info("  • Collecting scan data (past 30 days)...")
-    scan_data = scan_collector.collect(days_back=30, previous_run_data=previous_run)
+    # Collect data in parallel where possible
+    # Scan collector needs previous_run_data so it runs with its own args
+    current_data: dict[str, Any] = {}
 
-    logger.info("  • Collecting asset data...")
-    asset_data = asset_collector.collect()
+    def collect_scans() -> tuple[str, Any]:
+        logger.info("  • Collecting scan data (past 30 days)...")
+        return ('scans', scan_collector.collect(days_back=30, previous_run_data=previous_run))
 
-    logger.info("  • Collecting agent data...")
-    agent_data = agent_collector.collect()
+    def collect_assets() -> tuple[str, Any]:
+        logger.info("  • Collecting asset data...")
+        return ('assets', asset_collector.collect())
 
-    logger.info("  • Collecting scanner data...")
-    scanner_data = scanner_collector.collect()
+    def collect_agents() -> tuple[str, Any]:
+        logger.info("  • Collecting agent data...")
+        return ('agents', agent_collector.collect())
 
-    logger.info("  • Collecting connector data...")
-    connector_data = connector_collector.collect()
+    def collect_scanners() -> tuple[str, Any]:
+        logger.info("  • Collecting scanner data...")
+        return ('scanners', scanner_collector.collect())
 
-    logger.info("  • Collecting user data...")
-    user_data = user_collector.collect()
+    def collect_connectors() -> tuple[str, Any]:
+        logger.info("  • Collecting connector data...")
+        return ('connectors', connector_collector.collect())
 
-    current_data = {
-        'scans': scan_data,
-        'assets': asset_data,
-        'agents': agent_data,
-        'scanners': scanner_data,
-        'connectors': connector_data,
-        'users': user_data
-    }
+    def collect_users() -> tuple[str, Any]:
+        logger.info("  • Collecting user data...")
+        return ('users', user_collector.collect())
+
+    collectors = [collect_scans, collect_assets, collect_agents, collect_scanners, collect_connectors, collect_users]
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(fn): fn.__name__ for fn in collectors}
+        for future in as_completed(futures):
+            try:
+                key, data = future.result()
+                current_data[key] = data
+            except Exception as e:
+                fn_name = futures[future]
+                logger.error(f"Collector {fn_name} failed: {type(e).__name__}: {e}")
 
     logger.info("\nAnalyzing changes...")
     analyzer = ChangeAnalyzer(thresholds)
 
     analysis_results = {
-        'scans': analyzer.analyze_scans(scan_data, previous_run),
-        'assets': analyzer.analyze_credentials(asset_data, previous_run),
-        'license': analyzer.analyze_license(asset_data, previous_run),
-        'agents': analyzer.analyze_agents(agent_data, previous_run),
-        'scanners': analyzer.analyze_scanners(scanner_data, previous_run),
-        'connectors': analyzer.analyze_connectors(connector_data, previous_run),
-        'users': analyzer.analyze_users(user_data, previous_run)
+        'scans': analyzer.analyze_scans(current_data.get('scans', {}), previous_run),
+        'assets': analyzer.analyze_credentials(current_data.get('assets', {}), previous_run),
+        'license': analyzer.analyze_license(current_data.get('assets', {}), previous_run),
+        'agents': analyzer.analyze_agents(current_data.get('agents', {}), previous_run),
+        'scanners': analyzer.analyze_scanners(current_data.get('scanners', {}), previous_run),
+        'connectors': analyzer.analyze_connectors(current_data.get('connectors', {}), previous_run),
+        'users': analyzer.analyze_users(current_data.get('users', {}), previous_run),
     }
 
     logger.info("\nSaving results...")
-    # Save data without Claude analysis (will be generated during report creation)
-    run_data = {
-        'data': current_data
-    }
+    run_data: dict[str, Any] = {'data': current_data}
     storage.save_run_data(run_data)
 
-    # Save trend data for long-term charting
     trends.add_data_point(current_data)
 
     logger.info("\n")
@@ -110,13 +123,13 @@ def main():
     reporter = ConsoleReporter()
     reporter.print_header()
 
-    reporter.print_scans(scan_data, analysis_results['scans'])
-    reporter.print_assets(asset_data, analysis_results['assets'])
-    reporter.print_license(asset_data, analysis_results['license'])
-    reporter.print_agents(agent_data, analysis_results['agents'])
-    reporter.print_scanners(scanner_data, analysis_results['scanners'])
-    reporter.print_connectors(connector_data, analysis_results['connectors'])
-    reporter.print_users(user_data, analysis_results['users'])
+    reporter.print_scans(current_data.get('scans', {}), analysis_results['scans'])
+    reporter.print_assets(current_data.get('assets', {}), analysis_results['assets'])
+    reporter.print_license(current_data.get('assets', {}), analysis_results['license'])
+    reporter.print_agents(current_data.get('agents', {}), analysis_results['agents'])
+    reporter.print_scanners(current_data.get('scanners', {}), analysis_results['scanners'])
+    reporter.print_connectors(current_data.get('connectors', {}), analysis_results['connectors'])
+    reporter.print_users(current_data.get('users', {}), analysis_results['users'])
 
     reporter.print_footer()
 

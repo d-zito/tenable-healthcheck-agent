@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from reporters.html_reporter import HTMLReporter
 from analyzers.change_analyzer import ChangeAnalyzer
@@ -11,14 +14,14 @@ from config_loader import ConfigLoader
 from storage.trends_manager import TrendsManager
 
 
-def get_latest_run(data_dir):
+def get_latest_run(data_dir: Path) -> Path | None:
     files = sorted(data_dir.glob('healthcheck_*.json'))
     if not files:
         return None
     return files[-1]
 
 
-def get_previous_run(data_dir, current_file):
+def get_previous_run(data_dir: Path, current_file: Path) -> Path | None:
     files = sorted(data_dir.glob('healthcheck_*.json'))
     try:
         current_idx = files.index(current_file)
@@ -29,40 +32,24 @@ def get_previous_run(data_dir, current_file):
     return None
 
 
-def load_run_data(filepath):
+def load_run_data(filepath: Path) -> dict[str, Any]:
     with open(filepath, 'r') as f:
         return json.load(f)
 
 
-def save_run_data(filepath, data):
+def save_run_data(filepath: Path, data: dict[str, Any]) -> None:
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=2)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description='Generate HTML report from Tenable health check data'
     )
-    parser.add_argument(
-        '--file',
-        help='Path to specific JSON data file',
-        type=Path
-    )
-    parser.add_argument(
-        '--date',
-        help='Date/time stamp of run (e.g., 20260528_103045)',
-        type=str
-    )
-    parser.add_argument(
-        '--output',
-        help='Output HTML file path (default: reports/healthcheck_TIMESTAMP.html)',
-        type=Path
-    )
-    parser.add_argument(
-        '--skip-ai',
-        action='store_true',
-        help='Skip AI analysis (use cached analysis from JSON file) - for testing HTML formatting'
-    )
+    parser.add_argument('--file', help='Path to specific JSON data file', type=Path)
+    parser.add_argument('--date', help='Date/time stamp of run (e.g., 20260528_103045)', type=str)
+    parser.add_argument('--output', help='Output HTML file path (default: reports/healthcheck_TIMESTAMP.html)', type=Path)
+    parser.add_argument('--skip-ai', action='store_true', help='Skip AI analysis (use cached analysis from JSON file)')
 
     args = parser.parse_args()
 
@@ -110,33 +97,28 @@ def main():
         'agents': analyzer.analyze_agents(current_data.get('agents', {}), previous_data),
         'scanners': analyzer.analyze_scanners(current_data.get('scanners', {}), previous_data),
         'connectors': analyzer.analyze_connectors(current_data.get('connectors', {}), previous_data),
-        'users': analyzer.analyze_users(current_data.get('users', {}), previous_data)
+        'users': analyzer.analyze_users(current_data.get('users', {}), previous_data),
     }
 
-    # Handle Claude analysis
     if args.skip_ai:
-        # Test mode - skip AI processing and use cached analysis
-        print("\n⚙️  Test mode: Skipping AI analysis (using cached data from JSON)")
+        print("\n  Test mode: Skipping AI analysis (using cached data from JSON)")
         claude_analysis = run_data.get('claude_analysis')
         if not claude_analysis:
-            print("⚠  WARNING: No cached AI analysis found in this data file.")
+            print("  WARNING: No cached AI analysis found in this data file.")
             print("   Run without --skip-ai flag first to generate and cache AI analysis.")
             claude_analysis = None
     else:
-        # Normal mode - always run fresh AI analysis
         print("Running AI analysis with Claude...")
         from analyzers.claude_analyzer import ClaudeAnalyzer
         claude = ClaudeAnalyzer(use_cli=config.use_claude_cli())
         claude_analysis = claude.analyze_health_report(current_data, analysis_results)
 
-        # Save AI analysis to JSON file for future testing mode use
         print("Caching AI analysis to data file for future testing...")
         run_data['claude_analysis'] = claude_analysis
         save_run_data(data_file, run_data)
 
     print("Generating HTML report...")
 
-    # Load trend data for charts (daily aggregation)
     trends_manager = TrendsManager()
     trends_data = trends_manager.get_trends(daily_aggregation=True)
 
@@ -152,7 +134,7 @@ def main():
     with open(output_file, 'w') as f:
         f.write(html_content)
 
-    print(f"\n✓ HTML report generated: {output_file}")
+    print(f"\n  HTML report generated: {output_file}")
     print(f"\nOpen in browser:")
     print(f"  open {output_file}")
 

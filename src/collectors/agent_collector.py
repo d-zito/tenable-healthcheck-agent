@@ -1,57 +1,56 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from tenable_client import TenableClient
 
 
 class AgentCollector:
-    def __init__(self, tenable_client, offline_threshold_days=14):
+    def __init__(self, tenable_client: TenableClient, offline_threshold_days: int = 14) -> None:
         self.client = tenable_client
         self.offline_threshold_days = offline_threshold_days
 
-    def collect(self):
+    def collect(self) -> dict[str, Any]:
         agents = self.client.list_agents()
 
         total_agents = len(agents)
-        offline_agents = []
-        long_offline_agents = []
+        offline_agents: list[dict[str, Any]] = []
+        long_offline_agents: list[dict[str, Any]] = []
         online_agents = 0
 
-        # Track health states, versions, and profiles
-        health_states = {}
-        core_versions = {}
-        profiles = {}
+        health_states: dict[str, int] = {}
+        core_versions: dict[str, int] = {}
+        profiles: dict[str, int] = {}
 
-        # Use UTC for consistent timestamp comparisons
         threshold_timestamp = datetime.now(timezone.utc) - timedelta(days=self.offline_threshold_days)
 
         for agent in agents:
             status = agent.get('status', '').lower()
             last_connect = agent.get('last_connect')
 
-            # Track health state
             health_state = agent.get('health_state_name', 'unknown')
             health_states[health_state] = health_states.get(health_state, 0) + 1
 
-            # Track core version
             core_version = agent.get('core_version', 'unknown')
             core_versions[core_version] = core_versions.get(core_version, 0) + 1
 
-            # Track profile
             profile_name = agent.get('profile_name', 'unassigned')
             profiles[profile_name] = profiles.get(profile_name, 0) + 1
 
-            if status == 'on' or status == 'online':
+            if status in ('on', 'online'):
                 online_agents += 1
             else:
-                agent_info = {
+                agent_info: dict[str, Any] = {
                     'id': agent.get('id'),
                     'name': agent.get('name'),
                     'status': status,
-                    'last_connect': last_connect
+                    'last_connect': last_connect,
                 }
 
                 offline_agents.append(agent_info)
 
                 if last_connect:
-                    # Convert Unix timestamp to UTC datetime
                     last_connect_dt = datetime.fromtimestamp(last_connect, tz=timezone.utc)
                     if last_connect_dt < threshold_timestamp:
                         long_offline_agents.append(agent_info)
@@ -66,5 +65,5 @@ class AgentCollector:
             'offline_threshold_days': self.offline_threshold_days,
             'health_states': health_states,
             'core_versions': core_versions,
-            'profiles': profiles
+            'profiles': profiles,
         }
