@@ -495,18 +495,14 @@ class HTMLReporter:
                             <th>Scan Name</th>
                             <th>Policy</th>
                             <th>Launch Type</th>
-                            <th>Enabled</th>
 '''
             else:
                 headers = '''
                             <th>Scan Name</th>
                             <th>Policy</th>
-                            <th>Enabled</th>
-                            <th>Total Runs</th>
                             <th>Running</th>
-                            <th>Successful</th>
-                            <th>Stopped</th>
-                            <th>Failed</th>
+                            <th>Completed</th>
+                            <th>Incomplete</th>
                             <th>Success Rate</th>
 '''
 
@@ -535,18 +531,13 @@ class HTMLReporter:
                 is_enabled = details.get('is_enabled', True)
                 policy_name = details.get('policy', 'N/A')
 
-                # Stopped = all intentional user actions (stopped, disabled, canceled, paused)
+                # Incomplete = stopped + failed
                 total_stopped = stopped_runs + disabled_runs + canceled_runs + paused_runs
+                total_incomplete = total_stopped + failed_runs
 
                 # Success rate = successful / (total_runs - running)
-                completed_runs = total_runs - running_count
-                success_rate = (successful_runs / completed_runs * 100) if completed_runs > 0 else 0
-
-                # Build enabled cell with checkmark or X
-                if is_enabled:
-                    enabled_cell = '<span style="color: #00c853; font-size: 18px; font-weight: bold;">✓</span>'
-                else:
-                    enabled_cell = '<span style="color: #ff1744; font-size: 18px; font-weight: bold;">✗</span>'
+                completed_runs_calc = total_runs - running_count
+                success_rate = (successful_runs / completed_runs_calc * 100) if completed_runs_calc > 0 else 0
 
                 # Build row with or without launch type column
                 if is_agent_table:
@@ -559,7 +550,6 @@ class HTMLReporter:
                             <td>{scan_name}</td>
                             <td>{policy_name if policy_name else 'N/A'}</td>
                             <td>{launch_type}</td>
-                            <td>{enabled_cell}</td>
                         </tr>
 ''')
                 else:
@@ -567,12 +557,9 @@ class HTMLReporter:
                         <tr>
                             <td>{scan_name}</td>
                             <td>{policy_name if policy_name else 'N/A'}</td>
-                            <td>{enabled_cell}</td>
-                            <td>{total_runs}</td>
                             <td>{running_count}</td>
                             <td>{successful_runs}</td>
-                            <td>{total_stopped}</td>
-                            <td>{failed_runs}</td>
+                            <td>{total_incomplete}</td>
                             <td>{success_rate:.1f}%</td>
                         </tr>
 ''')
@@ -585,7 +572,7 @@ class HTMLReporter:
             if show_overview and inactive_scans > 0:
                 self.html_parts.append(f'''
                 <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-left: 3px solid #666; font-size: 13px;">
-                    <strong>{inactive_scans}</strong> scan(s) are configured but have not launched in the past {days_back} days
+                    <strong>{inactive_scans}</strong> additional scan(s) are configured but have not launched in the past {days_back} days
                 </div>
 ''')
 
@@ -598,7 +585,14 @@ class HTMLReporter:
             render_scan_table(network_scans, f"Network Scans (Past {days_back} Days)", is_agent_table=False, show_overview=True)
 
         if agent_scans:
-            render_scan_table(agent_scans, "Agent Scans", is_agent_table=True, show_overview=False)
+            # Split agent scans into enabled and disabled
+            enabled_agent_scans = {name: details for name, details in agent_scans.items() if details.get('is_enabled', True)}
+            disabled_agent_scans = {name: details for name, details in agent_scans.items() if not details.get('is_enabled', True)}
+
+            if enabled_agent_scans:
+                render_scan_table(enabled_agent_scans, "Agent Scans - Enabled", is_agent_table=True, show_overview=False)
+            if disabled_agent_scans:
+                render_scan_table(disabled_agent_scans, "Agent Scans - Disabled", is_agent_table=True, show_overview=False)
 
     def _add_asset_section(self, asset_data, analysis, license_analysis, historical_data=None):
         total = asset_data.get('total_assets', 0)
@@ -739,6 +733,84 @@ class HTMLReporter:
                             <td style="text-align: center;">{agents_7d.get('total_agents', '-') if agents_7d else '-'}</td>
                             <td style="text-align: center;">{agents_30d.get('total_agents', '-') if agents_30d else '-'}</td>
                         </tr>
+                    </tbody>
+                </table>
+''')
+
+        # Add health state distribution
+        health_states = agent_data.get('health_states', {})
+        if health_states:
+            self.html_parts.append('''
+                <h3 style="font-size: 13px; margin-top: 15px; margin-bottom: 8px; color: #666;">Health State Distribution</h3>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th>Health State</th>
+                            <th style="text-align: center;">Agent Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+''')
+            for state, count in sorted(health_states.items(), key=lambda x: x[1], reverse=True):
+                self.html_parts.append(f'''
+                        <tr>
+                            <td>{state}</td>
+                            <td style="text-align: center;">{count}</td>
+                        </tr>
+''')
+            self.html_parts.append('''
+                    </tbody>
+                </table>
+''')
+
+        # Add version distribution
+        core_versions = agent_data.get('core_versions', {})
+        if core_versions:
+            self.html_parts.append('''
+                <h3 style="font-size: 13px; margin-top: 15px; margin-bottom: 8px; color: #666;">Agent Version Distribution</h3>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th>Core Version</th>
+                            <th style="text-align: center;">Agent Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+''')
+            for version, count in sorted(core_versions.items(), key=lambda x: x[1], reverse=True):
+                self.html_parts.append(f'''
+                        <tr>
+                            <td>{version}</td>
+                            <td style="text-align: center;">{count}</td>
+                        </tr>
+''')
+            self.html_parts.append('''
+                    </tbody>
+                </table>
+''')
+
+        # Add profile distribution
+        profiles = agent_data.get('profiles', {})
+        if profiles:
+            self.html_parts.append('''
+                <h3 style="font-size: 13px; margin-top: 15px; margin-bottom: 8px; color: #666;">Agent Profile Distribution</h3>
+                <table style="margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th>Profile Name</th>
+                            <th style="text-align: center;">Agent Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+''')
+            for profile, count in sorted(profiles.items(), key=lambda x: x[1], reverse=True):
+                self.html_parts.append(f'''
+                        <tr>
+                            <td>{profile}</td>
+                            <td style="text-align: center;">{count}</td>
+                        </tr>
+''')
+            self.html_parts.append('''
                     </tbody>
                 </table>
 ''')

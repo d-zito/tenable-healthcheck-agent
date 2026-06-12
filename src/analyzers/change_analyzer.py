@@ -94,6 +94,21 @@ class ChangeAnalyzer:
         prev_offline = previous_data.get('data', {}).get('agents', {}).get('offline_agents', 0)
         prev_long_offline = previous_data.get('data', {}).get('agents', {}).get('long_offline_agents', 0)
 
+        # Analyze health state changes
+        current_health_states = current_data.get('health_states', {})
+        prev_health_states = previous_data.get('data', {}).get('agents', {}).get('health_states', {})
+        health_state_changes = self._analyze_distribution_changes(current_health_states, prev_health_states)
+
+        # Analyze version changes
+        current_versions = current_data.get('core_versions', {})
+        prev_versions = previous_data.get('data', {}).get('agents', {}).get('core_versions', {})
+        version_changes = self._analyze_distribution_changes(current_versions, prev_versions)
+
+        # Analyze profile changes
+        current_profiles = current_data.get('profiles', {})
+        prev_profiles = previous_data.get('data', {}).get('agents', {}).get('profiles', {})
+        profile_changes = self._analyze_distribution_changes(current_profiles, prev_profiles)
+
         return {
             'has_previous_data': True,
             'current_offline': current_offline,
@@ -101,8 +116,47 @@ class ChangeAnalyzer:
             'offline_change': current_offline - prev_offline,
             'current_long_offline': current_long_offline,
             'previous_long_offline': prev_long_offline,
-            'long_offline_change': current_long_offline - prev_long_offline
+            'long_offline_change': current_long_offline - prev_long_offline,
+            'health_state_changes': health_state_changes,
+            'version_changes': version_changes,
+            'profile_changes': profile_changes
         }
+
+    def _analyze_distribution_changes(self, current_dist, prev_dist):
+        """Analyze changes in a distribution (health states, versions, profiles)."""
+        all_keys = set(current_dist.keys()) | set(prev_dist.keys())
+
+        changes = {
+            'new_items': [],      # Items that appeared
+            'removed_items': [],  # Items that disappeared
+            'increased': [],      # Items with increased count
+            'decreased': []       # Items with decreased count
+        }
+
+        for key in all_keys:
+            current_count = current_dist.get(key, 0)
+            prev_count = prev_dist.get(key, 0)
+
+            if prev_count == 0 and current_count > 0:
+                changes['new_items'].append({'name': key, 'count': current_count})
+            elif current_count == 0 and prev_count > 0:
+                changes['removed_items'].append({'name': key, 'count': prev_count})
+            elif current_count > prev_count:
+                changes['increased'].append({
+                    'name': key,
+                    'current': current_count,
+                    'previous': prev_count,
+                    'change': current_count - prev_count
+                })
+            elif current_count < prev_count:
+                changes['decreased'].append({
+                    'name': key,
+                    'current': current_count,
+                    'previous': prev_count,
+                    'change': prev_count - current_count
+                })
+
+        return changes
 
     def analyze_scanners(self, current_data, previous_data):
         if not previous_data:

@@ -166,8 +166,32 @@ class ConsoleReporter:
         print(f"Offline: {agent_data['offline_agents']}")
         print(f"Offline > {agent_data['offline_threshold_days']} days: {agent_data['long_offline_agents']}")
 
+        # Print health state distribution
+        if agent_data.get('health_states'):
+            print(f"\n--- Health State Distribution ---")
+            health_data = []
+            for state, count in sorted(agent_data['health_states'].items(), key=lambda x: x[1], reverse=True):
+                health_data.append([state, count])
+            print(tabulate(health_data, headers=['Health State', 'Count'], tablefmt='simple'))
+
+        # Print version distribution
+        if agent_data.get('core_versions'):
+            print(f"\n--- Agent Version Distribution ---")
+            version_data = []
+            for version, count in sorted(agent_data['core_versions'].items(), key=lambda x: x[1], reverse=True):
+                version_data.append([version, count])
+            print(tabulate(version_data, headers=['Core Version', 'Count'], tablefmt='simple'))
+
+        # Print profile distribution
+        if agent_data.get('profiles'):
+            print(f"\n--- Agent Profile Distribution ---")
+            profile_data = []
+            for profile, count in sorted(agent_data['profiles'].items(), key=lambda x: x[1], reverse=True):
+                profile_data.append([profile, count])
+            print(tabulate(profile_data, headers=['Profile Name', 'Count'], tablefmt='simple'))
+
         if agent_data['long_offline_agent_list']:
-            print(f"\nAgents offline > {agent_data['offline_threshold_days']} days:")
+            print(f"\n--- Agents Offline > {agent_data['offline_threshold_days']} Days ---")
             table_data = [
                 [
                     a['name'],
@@ -179,9 +203,48 @@ class ConsoleReporter:
             print(tabulate(table_data, headers=['Name', 'Status', 'Last Connect'], tablefmt='simple'))
 
         if analysis.get('has_previous_data'):
-            print(f"\nChange from previous run:")
-            print(f"  Offline agents: {analysis['offline_change']:+d}")
-            print(f"  Long-term offline: {analysis['long_offline_change']:+d}")
+            print(f"\n--- Changes from Previous Run ---")
+            print(f"Offline agents: {analysis['offline_change']:+d}")
+            print(f"Long-term offline: {analysis['long_offline_change']:+d}")
+
+            # Print health state changes
+            health_changes = analysis.get('health_state_changes', {})
+            if any(health_changes.get(k) for k in ['new_items', 'removed_items', 'increased', 'decreased']):
+                print(f"\nHealth State Changes:")
+                for item in health_changes.get('new_items', []):
+                    print(f"  ✓ New: {item['name']} ({item['count']} agents)")
+                for item in health_changes.get('removed_items', []):
+                    print(f"  ✗ Removed: {item['name']} (was {item['count']} agents)")
+                for item in health_changes.get('increased', []):
+                    print(f"  ↑ {item['name']}: {item['previous']} → {item['current']} (+{item['change']})")
+                for item in health_changes.get('decreased', []):
+                    print(f"  ↓ {item['name']}: {item['previous']} → {item['current']} (-{item['change']})")
+
+            # Print version changes
+            version_changes = analysis.get('version_changes', {})
+            if any(version_changes.get(k) for k in ['new_items', 'removed_items', 'increased', 'decreased']):
+                print(f"\nVersion Changes:")
+                for item in version_changes.get('new_items', []):
+                    print(f"  ✓ New: {item['name']} ({item['count']} agents)")
+                for item in version_changes.get('removed_items', []):
+                    print(f"  ✗ Removed: {item['name']} (was {item['count']} agents)")
+                for item in version_changes.get('increased', []):
+                    print(f"  ↑ {item['name']}: {item['previous']} → {item['current']} (+{item['change']})")
+                for item in version_changes.get('decreased', []):
+                    print(f"  ↓ {item['name']}: {item['previous']} → {item['current']} (-{item['change']})")
+
+            # Print profile changes
+            profile_changes = analysis.get('profile_changes', {})
+            if any(profile_changes.get(k) for k in ['new_items', 'removed_items', 'increased', 'decreased']):
+                print(f"\nProfile Changes:")
+                for item in profile_changes.get('new_items', []):
+                    print(f"  ✓ New: {item['name']} ({item['count']} agents)")
+                for item in profile_changes.get('removed_items', []):
+                    print(f"  ✗ Removed: {item['name']} (was {item['count']} agents)")
+                for item in profile_changes.get('increased', []):
+                    print(f"  ↑ {item['name']}: {item['previous']} → {item['current']} (+{item['change']})")
+                for item in profile_changes.get('decreased', []):
+                    print(f"  ↓ {item['name']}: {item['previous']} → {item['current']} (-{item['change']})")
 
     def print_scanners(self, scanner_data, analysis):
         self.print_section("SCANNER STATUS")

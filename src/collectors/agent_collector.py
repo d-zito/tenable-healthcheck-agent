@@ -14,12 +14,29 @@ class AgentCollector:
         long_offline_agents = []
         online_agents = 0
 
+        # Track health states, versions, and profiles
+        health_states = {}
+        core_versions = {}
+        profiles = {}
+
         # Use UTC for consistent timestamp comparisons
         threshold_timestamp = datetime.now(timezone.utc) - timedelta(days=self.offline_threshold_days)
 
         for agent in agents:
             status = agent.get('status', '').lower()
             last_connect = agent.get('last_connect')
+
+            # Track health state
+            health_state = agent.get('health_state_name', 'unknown')
+            health_states[health_state] = health_states.get(health_state, 0) + 1
+
+            # Track core version
+            core_version = agent.get('core_version', 'unknown')
+            core_versions[core_version] = core_versions.get(core_version, 0) + 1
+
+            # Track profile
+            profile_name = agent.get('profile_name', 'unassigned')
+            profiles[profile_name] = profiles.get(profile_name, 0) + 1
 
             if status == 'on' or status == 'online':
                 online_agents += 1
@@ -46,5 +63,8 @@ class AgentCollector:
             'offline_agent_list': offline_agents,
             'long_offline_agents': len(long_offline_agents),
             'long_offline_agent_list': long_offline_agents,
-            'offline_threshold_days': self.offline_threshold_days
+            'offline_threshold_days': self.offline_threshold_days,
+            'health_states': health_states,
+            'core_versions': core_versions,
+            'profiles': profiles
         }
