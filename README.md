@@ -292,24 +292,6 @@ crontab -e
 | "Claude CLI not found" | Install from [claude.ai/download](https://claude.ai/download) or set `"use_cli": false` |
 | "Module not found" | Run `pip3 install -r requirements.txt` |
 
-## Publishing to GitHub
-
-```bash
-# Initialize repository
-git init
-git add .
-git commit -m "Initial commit: Tenable One Health Check Agent"
-
-# Create repository on GitHub, then:
-git remote add origin https://github.com/YOUR_USERNAME/tenable-healthcheck-agent.git
-git branch -M main
-git push -u origin main
-
-# Create release
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-```
-
 ## Future Enhancement Ideas
 
 - Email/Slack notifications for critical issues
