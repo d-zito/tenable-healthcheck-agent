@@ -136,9 +136,8 @@ class HTMLReporter:
         if trends_data:
             self._add_trends_section(trends_data)
 
-        self._add_scan_section(data.get('scans', {}), analysis_results.get('scans', {}))
-
         self.html_parts.append('<div class="status-accordion">')
+        self._add_scan_section(data.get('scans', {}), analysis_results.get('scans', {}))
         self._add_asset_section(data.get('assets', {}), analysis_results.get('assets', {}), analysis_results.get('license', {}), historical_data)
         self._add_agent_section(data.get('agents', {}), analysis_results.get('agents', {}), historical_data)
         self._add_scanner_section(data.get('scanners', {}), analysis_results.get('scanners', {}), historical_data)
@@ -241,18 +240,23 @@ class HTMLReporter:
         }
         .content { padding: 20px 25px; }
         .section {
-            margin-bottom: 25px;
-            border-left: 3px solid #E7FF00;
-            padding-left: 15px;
+            margin-bottom: 40px;
+            padding: 20px 22px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            border: 1px solid #e0e0e0;
         }
         .section h2 {
             color: #1E2426;
-            font-size: 16px;
-            margin-bottom: 10px;
-            font-weight: 600;
+            font-size: 24px;
+            margin-bottom: 15px;
+            font-weight: 700;
             display: flex;
             align-items: center;
             gap: 8px;
+            border-bottom: 2px solid #1E2426;
+            padding-bottom: 10px;
         }
         .stat-grid {
             display: grid;
@@ -417,29 +421,32 @@ class HTMLReporter:
             margin: 20px 0;
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 10px;
         }
         .accordion-panel {
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
+            margin-bottom: 40px;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
             overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
         }
         .accordion-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
-            background: #fafafa;
+            padding: 14px 18px;
+            background: #1E2426;
+            color: #E7FF00;
             cursor: pointer;
             user-select: none;
-            border-left: 3px solid #E7FF00;
+            border-left: 4px solid #1E2426;
             transition: background 0.15s;
         }
-        .accordion-header:hover { background: #f0f0f0; }
+        .accordion-header:hover { background: #2a3235; }
         .accordion-header h2 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1E2426;
+            font-size: 20px;
+            font-weight: 700;
+            color: #E7FF00;
             margin: 0;
         }
         .accordion-header .summary-pills {
@@ -831,36 +838,22 @@ class HTMLReporter:
         network_scans = {name: details for name, details in scan_summary.items()
                          if details.get('scan_type') not in [None, 'agent']}
 
-        def render_scan_table(scans_dict: dict, title: str, is_agent_table: bool = False, show_overview: bool = False) -> None:
-            if not scans_dict:
-                return
+        total_scans = len(scan_summary)
+        network_count = len(network_scans)
+        agent_count = len(agent_scans)
 
+        def render_scan_table_html(scans_dict: dict, is_agent_table: bool = False) -> str:
+            if not scans_dict:
+                return ''
+            parts: list[str] = []
             sorted_scans = sorted(scans_dict.items(), key=lambda x: x[1]['total_runs'], reverse=True)
 
             if is_agent_table:
-                headers = '''
-                            <th>Scan Name</th>
-                            <th>Policy</th>
-                            <th>Launch Type</th>'''
+                headers = '<th>Scan Name</th><th>Policy</th><th>Launch Type</th>'
             else:
-                headers = '''
-                            <th>Scan Name</th>
-                            <th>Policy</th>
-                            <th>Running</th>
-                            <th>Completed</th>
-                            <th>Incomplete</th>
-                            <th>Success Rate</th>'''
+                headers = '<th>Scan Name</th><th>Policy</th><th>Running</th><th>Completed</th><th>Incomplete</th><th>Success Rate</th>'
 
-            self.html_parts.append(f'''
-                <div id="scans" class="section">
-                    <h2>{self._escape(title)}</h2>
-                <table>
-                    <thead>
-                        <tr>{headers}
-                        </tr>
-                    </thead>
-                    <tbody>
-''')
+            parts.append(f'<table><thead><tr>{headers}</tr></thead><tbody>')
             for scan_name, details in sorted_scans:
                 total_runs = details['total_runs']
                 successful_runs = details.get('completed_runs', details.get('success_runs', 0))
@@ -880,54 +873,73 @@ class HTMLReporter:
 
                 if is_agent_table:
                     launch_type = details.get('agent_scan_launch_type') or 'scheduled'
-                    self.html_parts.append(f'''
-                        <tr>
-                            <td>{self._escape(scan_name)}</td>
-                            <td>{self._escape(policy_name) if policy_name else 'N/A'}</td>
-                            <td>{self._escape(launch_type)}</td>
-                        </tr>''')
+                    parts.append(f'<tr><td>{self._escape(scan_name)}</td><td>{self._escape(policy_name) if policy_name else "N/A"}</td><td>{self._escape(launch_type)}</td></tr>')
                 else:
                     row_class = ''
                     if success_rate < 80:
                         row_class = ' class="row-danger"'
                     elif success_rate < 95:
                         row_class = ' class="row-warning"'
-                    self.html_parts.append(f'''
-                        <tr{row_class}>
-                            <td>{self._escape(scan_name)}</td>
-                            <td>{self._escape(policy_name) if policy_name else 'N/A'}</td>
-                            <td>{running_count}</td>
-                            <td>{successful_runs}</td>
-                            <td>{total_incomplete}</td>
-                            <td>{success_rate:.1f}%</td>
-                        </tr>''')
-            self.html_parts.append('''
-                    </tbody>
-                </table>
-''')
+                    parts.append(f'<tr{row_class}><td>{self._escape(scan_name)}</td><td>{self._escape(policy_name) if policy_name else "N/A"}</td><td>{running_count}</td><td>{successful_runs}</td><td>{total_incomplete}</td><td>{success_rate:.1f}%</td></tr>')
+            parts.append('</tbody></table>')
+            return '\n'.join(parts)
 
-            if show_overview and inactive_scans > 0:
-                self.html_parts.append(f'''
-                <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-left: 3px solid #666; font-size: 13px;">
-                    <strong>{inactive_scans}</strong> additional scan(s) are configured but have not launched in the past {days_back} days
-                </div>
-''')
-
-            self.html_parts.append('''
-                </div>
-''')
+        # Build accordion body content
+        body_parts: list[str] = []
 
         if network_scans:
-            render_scan_table(network_scans, f"Network Scans (Past {days_back} Days)", is_agent_table=False, show_overview=True)
+            net_html = render_scan_table_html(network_scans, is_agent_table=False)
+            body_parts.append(f'''
+                    <div class="sub-section" style="padding-top:0; border-top:none; margin-top:0;">
+                        <div class="sub-section-header" onclick="toggleSubSection(this)">Network Scans (Past {days_back} Days)</div>
+                        <div class="collapsible-content">
+                            {net_html}''')
+            if inactive_scans > 0:
+                body_parts.append(f'''
+                            <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-left: 3px solid #666; font-size: 13px;">
+                                <strong>{inactive_scans}</strong> additional scan(s) are configured but have not launched in the past {days_back} days
+                            </div>''')
+            body_parts.append('</div></div>')
 
         if agent_scans:
             enabled_agent_scans = {name: details for name, details in agent_scans.items() if details.get('is_enabled', True)}
             disabled_agent_scans = {name: details for name, details in agent_scans.items() if not details.get('is_enabled', True)}
 
             if enabled_agent_scans:
-                render_scan_table(enabled_agent_scans, "Agent Scans - Enabled", is_agent_table=True, show_overview=False)
+                ena_html = render_scan_table_html(enabled_agent_scans, is_agent_table=True)
+                body_parts.append(f'''
+                    <div class="sub-section">
+                        <div class="sub-section-header" onclick="toggleSubSection(this)">Agent Scans — Enabled</div>
+                        <div class="collapsible-content">{ena_html}</div>
+                    </div>''')
             if disabled_agent_scans:
-                render_scan_table(disabled_agent_scans, "Agent Scans - Disabled", is_agent_table=True, show_overview=False)
+                dis_html = render_scan_table_html(disabled_agent_scans, is_agent_table=True)
+                body_parts.append(f'''
+                    <div class="sub-section">
+                        <div class="sub-section-header" onclick="toggleSubSection(this)">Agent Scans — Disabled</div>
+                        <div class="collapsible-content">{dis_html}</div>
+                    </div>''')
+
+        pills = f'<span class="pill">{total_scans} total</span>'
+        if network_count:
+            pills += f'<span class="pill">{network_count} network</span>'
+        if agent_count:
+            pills += f'<span class="pill">{agent_count} agent</span>'
+
+        self.html_parts.append(f'''
+            <div id="scans" class="accordion-panel">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <h2>Scans</h2>
+                    <div class="summary-pills">
+                        {pills}
+                        <span class="toggle-icon">&#9660;</span>
+                    </div>
+                </div>
+                <div class="accordion-body">
+                    {"".join(body_parts) if body_parts else "<p style='color:#888;font-size:13px;'>No scan data available.</p>"}
+                </div>
+            </div>
+''')
 
     def _add_asset_section(self, asset_data: dict[str, Any], analysis: dict[str, Any], license_analysis: dict[str, Any], historical_data: dict[str, Any] | None = None) -> None:
         total = asset_data.get('total_assets', 0)
@@ -1056,6 +1068,35 @@ class HTMLReporter:
                     <tbody>''')
             for profile, count in sorted(profiles.items(), key=lambda x: x[1], reverse=True):
                 self.html_parts.append(f'<tr><td>{self._escape(profile)}</td><td style="text-align:center;">{count}</td></tr>')
+            self.html_parts.append('</tbody></table></div></div>')
+
+        plugin_feed_ids = agent_data.get('plugin_feed_ids', {})
+        if plugin_feed_ids:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            recent: dict[str, int] = {}
+            older_count = 0
+            for feed_id, count in plugin_feed_ids.items():
+                is_recent = False
+                if feed_id != 'unknown' and len(feed_id) >= 12:
+                    try:
+                        feed_dt = datetime.strptime(feed_id[:12], '%Y%m%d%H%M').replace(tzinfo=timezone.utc)
+                        is_recent = feed_dt >= cutoff
+                    except ValueError:
+                        pass
+                if is_recent:
+                    recent[feed_id] = count
+                else:
+                    older_count += count
+            self.html_parts.append('''<div class="sub-section">
+                <div class="sub-section-header" onclick="toggleSubSection(this)">Plugin Feed IDs</div>
+                <div class="collapsible-content">
+                <table>
+                    <thead><tr><th>Plugin Feed ID</th><th style="text-align:center;">Count</th></tr></thead>
+                    <tbody>''')
+            for feed_id, count in sorted(recent.items(), reverse=True):
+                self.html_parts.append(f'<tr><td>{self._escape(feed_id)}</td><td style="text-align:center;">{count}</td></tr>')
+            if older_count > 0:
+                self.html_parts.append(f'<tr><td><em>older than seven days</em></td><td style="text-align:center;">{older_count}</td></tr>')
             self.html_parts.append('</tbody></table></div></div>')
 
         if agent_data.get('long_offline_agent_list'):

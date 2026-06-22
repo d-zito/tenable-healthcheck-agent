@@ -22,6 +22,7 @@ class AgentCollector:
         health_states: dict[str, int] = {}
         core_versions: dict[str, int] = {}
         profiles: dict[str, int] = {}
+        plugin_feed_ids: dict[str, int] = {}
 
         threshold_timestamp = datetime.now(timezone.utc) - timedelta(days=self.offline_threshold_days)
 
@@ -37,6 +38,9 @@ class AgentCollector:
 
             profile_name = agent.get('profile_name', 'unassigned')
             profiles[profile_name] = profiles.get(profile_name, 0) + 1
+
+            plugin_feed_id = agent.get('plugin_feed_id', 'unknown')
+            plugin_feed_ids[plugin_feed_id] = plugin_feed_ids.get(plugin_feed_id, 0) + 1
 
             if status in ('on', 'online'):
                 online_agents += 1
@@ -66,4 +70,5 @@ class AgentCollector:
             'health_states': health_states,
             'core_versions': core_versions,
             'profiles': profiles,
+            'plugin_feed_ids': plugin_feed_ids,
         }
