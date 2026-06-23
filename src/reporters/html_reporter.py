@@ -126,9 +126,6 @@ class HTMLReporter:
 
         self._add_header(formatted_timestamp)
 
-        if claude_analysis and not claude_analysis.get('error'):
-            self._add_claude_section(claude_analysis)
-
         self._add_health_dashboard(data, historical_data)
 
         self._add_changes_strip(data, historical_data)
@@ -144,6 +141,9 @@ class HTMLReporter:
         self._add_connector_section(data.get('connectors', {}), analysis_results.get('connectors', {}), historical_data)
         self._add_user_section(data.get('users', {}), analysis_results.get('users', {}), historical_data)
         self.html_parts.append('</div>')
+
+        if claude_analysis and not claude_analysis.get('error'):
+            self._add_claude_section(claude_analysis)
 
         self._add_footer()
 
@@ -607,7 +607,6 @@ class HTMLReporter:
 <body>
     <nav class="sticky-nav">
         <span class="nav-brand">Health Check</span>
-        <a href="#ai-summary">Summary</a>
         <a href="#health-dashboard">Dashboard</a>
         <a href="#trends">Trends</a>
         <a href="#scans">Scans</a>
@@ -616,6 +615,7 @@ class HTMLReporter:
         <a href="#scanners">Scanners</a>
         <a href="#connectors">Connectors</a>
         <a href="#users">Users</a>
+        <a href="#ai-summary">Summary</a>
     </nav>
     <div class="container">
         <div class="header">

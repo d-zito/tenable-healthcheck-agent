@@ -23,6 +23,50 @@ class ClaudeAnalyzer:
             'recommendations': [],
         }
 
+    def _summarize_current_data(self, current_data: dict[str, Any]) -> dict[str, Any]:
+        """Reduce current_data to counts and samples to avoid oversized payloads."""
+        summary: dict[str, Any] = {}
+
+        for key, value in current_data.items():
+            if not isinstance(value, dict):
+                summary[key] = value
+                continue
+
+            section: dict[str, Any] = {}
+            for field, val in value.items():
+                # Keep scalar counts/rates/timestamps directly
+                if not isinstance(val, list):
+                    section[field] = val
+                else:
+                    # Summarize lists: count + first 5 items
+                    section[f"{field}_count"] = len(val)
+                    if val:
+                        section[f"{field}_sample"] = val[:5]
+            summary[key] = section
+
+        return summary
+
+    def _summarize_analysis_results(self, analysis_results: dict[str, Any]) -> dict[str, Any]:
+        """Reduce analysis_results to deltas and flags only."""
+        summary: dict[str, Any] = {}
+
+        for key, value in analysis_results.items():
+            if not isinstance(value, dict):
+                summary[key] = value
+                continue
+
+            section: dict[str, Any] = {}
+            for field, val in value.items():
+                if isinstance(val, list):
+                    section[f"{field}_count"] = len(val)
+                    if val:
+                        section[f"{field}_sample"] = val[:5]
+                else:
+                    section[field] = val
+            summary[key] = section
+
+        return summary
+
     def _build_analysis_prompt(self, current_data: dict[str, Any], analysis_results: dict[str, Any]) -> str:
         prompt = """You are analyzing a Tenable One health check report. Please provide:
 
@@ -41,9 +85,9 @@ IMPORTANT GUIDELINES:
 
 Current Data:
 """
-        prompt += json.dumps(current_data, indent=2)
+        prompt += json.dumps(self._summarize_current_data(current_data), indent=2)
         prompt += "\n\nComparison with Previous Run:\n"
-        prompt += json.dumps(analysis_results, indent=2)
+        prompt += json.dumps(self._summarize_analysis_results(analysis_results), indent=2)
 
         prompt += """
 
@@ -75,7 +119,7 @@ Remember: If scanners are all working and agents are all online, these are posit
                 ['claude', '-p', prompt],
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=180,
             )
 
             if result.returncode == 0:
@@ -109,7 +153,7 @@ Remember: If scanners are all working and agents are all online, these are posit
                 return {'error': 'Claude CLI failed', 'stderr': result.stderr}
 
         except subprocess.TimeoutExpired:
-            logger.error("Claude analysis timed out after 60 seconds")
+            logger.error("Claude analysis timed out after 180 seconds")
             return {'error': 'Claude analysis timed out'}
         except FileNotFoundError:
             logger.error("Claude CLI not found - is it installed?")
