@@ -1,6 +1,6 @@
 # Tenable One Health Check Agent
 
-An open-source health monitoring tool for Tenable One that tracks scanning health, credentials, license usage, agents, scanners, and connectors over time.
+An open-source health monitoring tool for Tenable One that tracks scan health, credentials, license usage, agents, scanners, and connectors over time.
 
 ## Features
 
@@ -19,7 +19,7 @@ An open-source health monitoring tool for Tenable One that tracks scanning healt
 ### 1. Prerequisites
 
 - Python 3.8 or higher
-- Tenable One/Vulnerability Management API keys ([Get them here](https://cloud.tenable.com) → Settings → API Keys)
+- Tenable Vulnerability Management API keys ([Get them here](https://cloud.tenable.com) → Settings → API Keys)
 - Claude Code CLI (optional, for AI analysis)
 
 **Note:** This tool uses the official [pytenable](https://pytenable.readthedocs.io/) SDK.
@@ -113,13 +113,13 @@ HTML reports are saved to `reports/` directory with styled tables, color-coded a
 
 ### Data Flow
 ```
-Tenable One API → Collectors → Analyzers → Claude AI → Report
+Tenable API → Collectors → Analyzers → Claude AI → Report
                        ↓
                    Storage (historical data)
 ```
 
 ### On Each Run
-1. Collects current data from Tenable One
+1. Collects current data from Tenable
 2. Compares against previous run (if available)
 3. Analyzes changes and detects anomalies
 4. Gets AI-powered insights from Claude
@@ -321,10 +321,6 @@ MIT License - See [LICENSE](LICENSE) file for details.
 - **Issues**: [GitHub Issues](https://github.com/yourusername/tenable-healthcheck-agent/issues)
 - **Documentation**: [API Reference](docs/API_REFERENCE.md)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/tenable-healthcheck-agent/discussions)
-
-## Acknowledgments
-
-Built for the Tenable community with ❤️
 
 ## Getting Help
 
