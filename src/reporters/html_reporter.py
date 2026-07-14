@@ -744,89 +744,141 @@ class HTMLReporter:
         status = claude_analysis.get('health_status', 'unknown').upper()
         status_colors = {
             'HEALTHY': '#00c853',
-            'WARNING': '#b8860b',
-            'CRITICAL': '#ff1744',
-            'UNKNOWN': '#666',
+            'WARNING': '#f59e0b',
+            'CRITICAL': '#ef4444',
+            'UNKNOWN': '#94a3b8',
         }
-        status_color = status_colors.get(status, '#666')
-        status_emojis = {'HEALTHY': '&#10003;', 'WARNING': '&#9888;', 'CRITICAL': '&#128680;', 'UNKNOWN': '?'}
-        status_emoji = status_emojis.get(status, '?')
+        status_bg_colors = {
+            'HEALTHY': '#f0fdf4',
+            'WARNING': '#fffbeb',
+            'CRITICAL': '#fef2f2',
+            'UNKNOWN': '#f8fafc',
+        }
+        status_color = status_colors.get(status, '#94a3b8')
+        status_bg = status_bg_colors.get(status, '#f8fafc')
+        status_icons = {
+            'HEALTHY': '&#x2713;',
+            'WARNING': '&#x26a0;',
+            'CRITICAL': '&#x26d4;',
+            'UNKNOWN': '&#x3f;',
+        }
+        status_icon = status_icons.get(status, '&#x3f;')
+        status_label = status.capitalize()
 
         self.html_parts.append(f'''
-            <div id="ai-summary" class="section" style="background: #fafafa; padding: 15px; border-radius: 4px; border-left: 4px solid {status_color};">
-                <h2 style="margin-bottom: 12px;">AI Executive Summary</h2>
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; background: white; padding: 12px; border-radius: 4px; border: 2px solid {status_color};">
-                    <div style="font-size: 32px;">{status_emoji}</div>
-                    <div>
-                        <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Overall Health Status</div>
-                        <div style="font-size: 20px; font-weight: bold; color: {status_color};">{self._escape(status)}</div>
+            <div id="ai-summary" class="section" style="background: #ffffff; padding: 0; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                <!-- Header bar -->
+                <div style="background: linear-gradient(135deg, #1E2426 0%, #2d3748 100%); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 28px; height: 28px; background: rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white;">&#x2728;</div>
+                        <div>
+                            <div style="font-size: 16px; font-weight: 700; color: white; letter-spacing: -0.3px;">AI Executive Summary</div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px;">Powered by Claude</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; background: {status_bg}; border: 1.5px solid {status_color}; border-radius: 20px; padding: 5px 14px;">
+                        <span style="color: {status_color}; font-size: 14px; font-weight: bold;">{status_icon}</span>
+                        <span style="color: {status_color}; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">{status_label}</span>
                     </div>
                 </div>
+                <!-- Content area -->
+                <div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
 ''')
 
         if claude_analysis.get('executive_summary'):
             summary = self._escape(claude_analysis['executive_summary']).replace('\n', '<br>')
             self.html_parts.append(f'''
-                <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #1E2426;">
-                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Summary</h3>
-                    <p style="line-height: 1.6; color: #333; font-size: 13px;">{summary}</p>
-                </div>
+                    <div style="background: #f8fafc; border-radius: 6px; padding: 16px 18px; border: 1px solid #e2e8f0;">
+                        <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 10px;">
+                            <div style="width: 3px; height: 16px; background: #1E2426; border-radius: 2px;"></div>
+                            <span style="font-size: 11px; font-weight: 700; color: #1E2426; text-transform: uppercase; letter-spacing: 0.8px;">Overview</span>
+                        </div>
+                        <p style="line-height: 1.7; color: #374151; font-size: 13px; margin: 0;">{summary}</p>
+                    </div>
 ''')
 
-        if claude_analysis.get('key_concerns'):
-            self.html_parts.append('''
-                <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ff1744;">
-                    <h3 style="color: #ff1744; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Key Concerns</h3>
-                    <ul style="margin-left: 18px; line-height: 1.6; font-size: 13px;">
+        has_concerns = bool(claude_analysis.get('key_concerns'))
+        has_trends = bool(claude_analysis.get('trends'))
+
+        if has_concerns or has_trends:
+            self.html_parts.append('<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">')
+
+            if has_concerns:
+                self.html_parts.append('''
+                        <div style="background: #fff5f5; border-radius: 6px; padding: 16px 18px; border: 1px solid #fecaca;">
+                            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 12px;">
+                                <div style="width: 3px; height: 16px; background: #ef4444; border-radius: 2px;"></div>
+                                <span style="font-size: 11px; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 0.8px;">Key Concerns</span>
+                            </div>
+                            <ul style="margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px;">
 ''')
-            for concern in claude_analysis['key_concerns']:
-                self.html_parts.append(f'                        <li style="color: #333; margin-bottom: 4px;">{self._escape(concern)}</li>')
-            self.html_parts.append('''
-                    </ul>
-                </div>
+                for concern in claude_analysis['key_concerns']:
+                    self.html_parts.append(f'                                <li style="color: #374151; font-size: 12.5px; line-height: 1.5;">{self._escape(concern)}</li>')
+                self.html_parts.append('''
+                            </ul>
+                        </div>
 ''')
+
+            if has_trends:
+                self.html_parts.append('''
+                        <div style="background: #f0f9ff; border-radius: 6px; padding: 16px 18px; border: 1px solid #bae6fd;">
+                            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 12px;">
+                                <div style="width: 3px; height: 16px; background: #0284c7; border-radius: 2px;"></div>
+                                <span style="font-size: 11px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.8px;">Trends to Monitor</span>
+                            </div>
+                            <ul style="margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px;">
+''')
+                for trend in claude_analysis['trends']:
+                    self.html_parts.append(f'                                <li style="color: #374151; font-size: 12.5px; line-height: 1.5;">{self._escape(trend)}</li>')
+                self.html_parts.append('''
+                            </ul>
+                        </div>
+''')
+
+            # Close grid if only one column (odd case: one present, other absent)
+            if not has_concerns or not has_trends:
+                pass  # single column stretches fine with grid
+            self.html_parts.append('                    </div>')
 
         if claude_analysis.get('recommendations'):
+            priority_meta = {
+                'HIGH':   {'color': '#ef4444', 'bg': '#fff5f5', 'border': '#fecaca', 'dot': '#ef4444'},
+                'MEDIUM': {'color': '#d97706', 'bg': '#fffbeb', 'border': '#fde68a', 'dot': '#f59e0b'},
+                'LOW':    {'color': '#0f766e', 'bg': '#f0fdfa', 'border': '#99f6e4', 'dot': '#14b8a6'},
+            }
             self.html_parts.append('''
-                <div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #b8860b;">
-                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Recommendations</h3>
+                    <div style="background: #fafafa; border-radius: 6px; padding: 16px 18px; border: 1px solid #e2e8f0;">
+                        <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 14px;">
+                            <div style="width: 3px; height: 16px; background: #f59e0b; border-radius: 2px;"></div>
+                            <span style="font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.8px;">Recommendations</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
 ''')
             for rec in claude_analysis['recommendations']:
                 priority = rec.get('priority', 'medium').upper()
-                priority_colors = {'HIGH': '#ff1744', 'MEDIUM': '#b8860b', 'LOW': '#1E2426'}
-                priority_color = priority_colors.get(priority, '#666')
+                meta = priority_meta.get(priority, {'color': '#64748b', 'bg': '#f8fafc', 'border': '#e2e8f0', 'dot': '#94a3b8'})
                 issue = self._escape(rec.get('issue', 'N/A'))
                 action = self._escape(rec.get('action', 'N/A'))
-
                 self.html_parts.append(f'''
-                    <div style="margin-bottom: 8px; padding: 10px; background: #fafafa; border-radius: 4px; border-left: 3px solid {priority_color};">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                            <span style="background: {priority_color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">{priority}</span>
-                            <strong style="color: #1E2426; font-size: 12px;">{issue}</strong>
-                        </div>
-                        <div style="color: #666; padding-left: 8px; border-left: 2px solid #e0e0e0; font-size: 12px;">
-                            &rarr; {action}
+                            <div style="background: {meta['bg']}; border: 1px solid {meta['border']}; border-radius: 6px; padding: 12px 14px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; background: {meta['color']}; color: white; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 7px; border-radius: 10px;">{priority}</span>
+                                    <strong style="color: #1e293b; font-size: 12.5px; font-weight: 600;">{issue}</strong>
+                                </div>
+                                <div style="display: flex; align-items: flex-start; gap: 7px; padding-left: 2px;">
+                                    <span style="color: {meta['color']}; font-size: 13px; margin-top: 1px; flex-shrink: 0;">&#x2192;</span>
+                                    <span style="color: #4b5563; font-size: 12px; line-height: 1.55;">{action}</span>
+                                </div>
+                            </div>
+''')
+            self.html_parts.append('''
                         </div>
                     </div>
 ''')
-            self.html_parts.append('''
-                </div>
-''')
 
-        if claude_analysis.get('trends'):
-            self.html_parts.append('''
-                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 3px solid #1E2426;">
-                    <h3 style="color: #1E2426; font-size: 13px; margin-bottom: 8px; font-weight: 600;">Trends to Monitor</h3>
-                    <ul style="margin-left: 18px; line-height: 1.6; font-size: 13px;">
-''')
-            for trend in claude_analysis['trends']:
-                self.html_parts.append(f'                        <li style="color: #333; margin-bottom: 4px;">{self._escape(trend)}</li>')
-            self.html_parts.append('''
-                    </ul>
+        self.html_parts.append('''
                 </div>
-''')
-
-        self.html_parts.append('            </div>')
+            </div>''')
 
     def _add_scan_section(self, scan_data: dict[str, Any], analysis: dict[str, Any]) -> None:
         days_back = scan_data.get('days_back', 7)
