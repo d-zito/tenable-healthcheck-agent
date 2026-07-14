@@ -108,9 +108,9 @@ def main() -> None:
             print("   Run without --skip-ai flag first to generate and cache AI analysis.")
             claude_analysis = None
     else:
-        print("Running AI analysis with Claude...")
+        print("Running AI analysis...")
         from analyzers.claude_analyzer import ClaudeAnalyzer
-        claude = ClaudeAnalyzer(use_cli=config.use_claude_cli())
+        claude = ClaudeAnalyzer(config.config)
         claude_analysis = claude.analyze_health_report(current_data, analysis_results)
 
         print("Caching AI analysis to data file for future testing...")

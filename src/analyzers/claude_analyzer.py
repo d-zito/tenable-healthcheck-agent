@@ -2,25 +2,47 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
-from typing import Any
+from typing import Any, Optional
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from llm_providers import create_llm_provider, LLMProvider
 
 logger = logging.getLogger('tenable-healthcheck')
 
 
 class ClaudeAnalyzer:
-    def __init__(self, use_cli: bool = True) -> None:
-        self.use_cli = use_cli
+    """
+    AI-powered health analysis using configurable LLM providers.
+
+    Despite the class name 'ClaudeAnalyzer', this now supports multiple LLM providers
+    including Claude CLI, OpenAI, Anthropic API, and Ollama.
+    """
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        """
+        Initialize analyzer with LLM provider from config.
+
+        Args:
+            config: Full configuration dictionary with 'llm' section
+        """
+        self.provider: Optional[LLMProvider] = create_llm_provider(config)
 
     def analyze_health_report(self, current_data: dict[str, Any], analysis_results: dict[str, Any]) -> dict[str, Any]:
         prompt = self._build_analysis_prompt(current_data, analysis_results)
 
-        if self.use_cli:
-            return self._analyze_via_cli(prompt)
+        if self.provider:
+            logger.info(f"Running AI analysis with {self.provider.get_name()}")
+            return self.provider.analyze(prompt)
 
         return {
-            'summary': 'Claude API not configured. Install and configure Claude API keys to enable AI analysis.',
+            'health_status': 'unknown',
+            'executive_summary': 'AI analysis is disabled or no LLM provider configured.',
+            'key_concerns': [],
             'recommendations': [],
+            'trends': [],
         }
 
     def _summarize_current_data(self, current_data: dict[str, Any]) -> dict[str, Any]:
@@ -109,58 +131,3 @@ Please provide your analysis in the following JSON format:
 Remember: If scanners are all working and agents are all online, these are positives, not concerns.
 """
         return prompt
-
-    def _analyze_via_cli(self, prompt: str) -> dict[str, Any]:
-        """Analyze health data using Claude CLI."""
-        try:
-            logger.debug("Sending health data to Claude CLI for analysis")
-
-            result = subprocess.run(
-                ['claude', '-p', prompt],
-                capture_output=True,
-                text=True,
-                timeout=180,
-            )
-
-            if result.returncode == 0:
-                logger.debug("Claude analysis completed successfully")
-                output = result.stdout.strip()
-
-                if '```json' in output:
-                    start = output.find('```json') + 7
-                    end = output.find('```', start)
-                    output = output[start:end].strip()
-                elif '```' in output:
-                    start = output.find('```') + 3
-                    end = output.find('```', start)
-                    output = output[start:end].strip()
-
-                try:
-                    return json.loads(output)
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Claude response was not valid JSON: {e}")
-                    logger.debug(f"Claude raw output: {result.stdout}")
-                    return {
-                        'health_status': 'unknown',
-                        'executive_summary': result.stdout,
-                        'key_concerns': [],
-                        'recommendations': [],
-                        'trends': [],
-                    }
-            else:
-                logger.error(f"Claude CLI failed with exit code {result.returncode}")
-                logger.debug(f"Claude stderr: {result.stderr}")
-                return {'error': 'Claude CLI failed', 'stderr': result.stderr}
-
-        except subprocess.TimeoutExpired:
-            logger.error("Claude analysis timed out after 180 seconds")
-            return {'error': 'Claude analysis timed out'}
-        except FileNotFoundError:
-            logger.error("Claude CLI not found - is it installed?")
-            return {
-                'error': 'Claude CLI not found. Please install Claude Code CLI.',
-                'help': 'Visit https://claude.ai/download to install Claude Code',
-            }
-        except Exception as e:
-            logger.error(f"Unexpected error during Claude analysis: {e}", exc_info=True)
-            return {'error': f'Unexpected error: {str(e)}'}

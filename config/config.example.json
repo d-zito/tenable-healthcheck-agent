@@ -12,7 +12,9 @@
     "connector_offline_tolerance": 0
   },
   "data_retention_days": 90,
-  "claude": {
-    "use_cli": true
+  "llm": {
+    "enabled": true,
+    "provider": "claude_cli",
+    "timeout": 180
   }
 }

@@ -11,7 +11,7 @@ An open-source health monitoring tool for Tenable One that tracks scan health, c
 - 🖥️ **Scanner Health** - Track scanner status and detect issues
 - 🔌 **Connector Health** - Monitor connector status
 - 👥 **User Management** - Track user accounts, roles, and login activity
-- 🧠 **AI Analysis** - Claude-powered insights and recommendations
+- 🧠 **AI Analysis** - LLM-powered insights and recommendations (supports Claude, GPT-4, Ollama, and more)
 - 📊 **Historical Tracking** - Compare runs over time to detect trends
 
 ## Quick Start (5 minutes)
@@ -20,7 +20,12 @@ An open-source health monitoring tool for Tenable One that tracks scan health, c
 
 - Python 3.8 or higher
 - Tenable Vulnerability Management API keys ([Get them here](https://cloud.tenable.com) → Settings → API Keys)
-- Claude Code CLI (optional, for AI analysis)
+- (Optional) LLM provider for AI analysis:
+  - **Claude CLI** (recommended for development)
+  - **OpenAI API** (GPT-4)
+  - **Anthropic API** (Claude via API)
+  - **Ollama** (local/open-source models)
+  - See [LLM Configuration Guide](docs/LLM_CONFIGURATION.md) for details
 
 **Note:** This tool uses the official [pytenable](https://pytenable.readthedocs.io/) SDK.
 
@@ -61,8 +66,62 @@ Edit `config/config.json` with your Tenable credentials:
     "agent_offline_days": 14
   },
   "data_retention_days": 90,
-  "claude": {
-    "use_cli": true
+  "llm": {
+    "enabled": true,
+    "provider": "claude_cli"
+  }
+}
+```
+
+**LLM Provider Options:**
+
+The tool supports multiple AI providers for analysis. Choose one:
+
+| Provider | Setup | Cost | Best For |
+|----------|-------|------|----------|
+| `claude_cli` | Install [Claude CLI](https://claude.ai/download) | Free* | Development |
+| `openai` | API key from [OpenAI](https://platform.openai.com/) | Pay per use | Production |
+| `anthropic` | API key from [Anthropic](https://console.anthropic.com/) | Pay per use | Production |
+| `ollama` | Install [Ollama](https://ollama.ai/) | Free | Offline/airgapped |
+
+*Requires Claude subscription. See [LLM Configuration Guide](docs/LLM_CONFIGURATION.md) for detailed setup.
+
+**Example configurations:**
+
+```json
+// OpenAI GPT-4
+{
+  "llm": {
+    "enabled": true,
+    "provider": "openai",
+    "api_key": "sk-proj-...",
+    "model": "gpt-4-turbo-preview"
+  }
+}
+
+// Anthropic Claude API
+{
+  "llm": {
+    "enabled": true,
+    "provider": "anthropic",
+    "api_key": "sk-ant-...",
+    "model": "claude-sonnet-4-20250514"
+  }
+}
+
+// Ollama (local)
+{
+  "llm": {
+    "enabled": true,
+    "provider": "ollama",
+    "model": "llama2"
+  }
+}
+
+// Disable AI analysis
+{
+  "llm": {
+    "enabled": false
   }
 }
 ```
@@ -113,7 +172,7 @@ HTML reports are saved to `reports/` directory with styled tables, color-coded a
 
 ### Data Flow
 ```
-Tenable API → Collectors → Analyzers → Claude AI → Report
+Tenable API → Collectors → Analyzers → AI Analysis (Optional) → Report
                        ↓
                    Storage (historical data)
 ```
@@ -122,7 +181,7 @@ Tenable API → Collectors → Analyzers → Claude AI → Report
 1. Collects current data from Tenable
 2. Compares against previous run (if available)
 3. Analyzes changes and detects anomalies
-4. Gets AI-powered insights from Claude
+4. Gets AI-powered insights (if LLM provider configured)
 5. Saves data for next comparison
 6. Generates comprehensive report
 
@@ -162,7 +221,8 @@ tenable-healthcheck-agent/
 | `license_change_percent` | Alert threshold for license changes | 5 |
 | `agent_offline_days` | Days before flagging agent as long-term offline | 14 |
 | `data_retention_days` | How long to keep historical data | 90 |
-| `use_cli` | Use Claude CLI for AI analysis | true |
+| `llm.enabled` | Enable/disable AI analysis | true |
+| `llm.provider` | LLM provider (claude_cli, openai, anthropic, ollama) | claude_cli |
 
 ## Sample Output
 
@@ -289,7 +349,7 @@ crontab -e
 |---------|----------|
 | "Configuration file not found" | Run `./setup.sh` or copy `config.example.json` to `config.json` |
 | "Authentication failed" | Verify API keys in `config.json` are correct and haven't expired |
-| "Claude CLI not found" | Install from [claude.ai/download](https://claude.ai/download) or set `"use_cli": false` |
+| "LLM provider not available" | See [LLM Configuration Guide](docs/LLM_CONFIGURATION.md) for setup instructions |
 | "Module not found" | Run `pip3 install -r requirements.txt` |
 
 ## Future Enhancement Ideas
