@@ -168,6 +168,22 @@ open reports/healthcheck_*.html
 
 HTML reports are saved to `reports/` directory with styled tables, color-coded alerts, and easy-to-read formatting.
 
+### 6. MCP Server (Optional - Claude Code Integration)
+
+```bash
+# Start the MCP server for Claude Code integration
+python3 src/mcp_server.py
+
+# This exposes the healthcheck capabilities via Model Context Protocol
+# allowing Claude Code to run checks and generate reports programmatically
+```
+
+The MCP server enables seamless integration with Claude Code, allowing you to:
+- Run health checks from within Claude Code
+- Generate reports on-demand without manual execution
+- Query historical trends and metrics
+- Set up automated analysis workflows
+
 ## How It Works
 
 ### Data Flow
@@ -185,12 +201,45 @@ Tenable API → Collectors → Analyzers → AI Analysis (Optional) → Report
 5. Saves data for next comparison
 6. Generates comprehensive report
 
+## Claude Code Integration
+
+### MCP Server
+
+The agent includes an MCP (Model Context Protocol) server that enables deep integration with Claude Code. This allows you to:
+
+- **Run health checks programmatically** - Invoke checks directly from Claude Code prompts
+- **Generate reports on demand** - Create HTML/JSON reports without manual script execution
+- **Query historical data** - Access trends, comparisons, and historical metrics
+- **Automate workflows** - Build multi-step analysis workflows within Claude Code
+- **Schedule recurring analysis** - Set up automated daily/weekly checks with Claude Code hooks
+
+### Getting Started with MCP
+
+1. Start the MCP server:
+```bash
+python3 src/mcp_server.py
+```
+
+2. In Claude Code, use the MCP resources to:
+   - List available health checks
+   - Run a specific check (scans, licenses, agents, etc.)
+   - Generate reports with custom date ranges
+   - Retrieve historical comparison data
+
+3. Example Claude Code workflow:
+```
+Run the Tenable health check and generate a report, then analyze the results for critical issues
+```
+
+The MCP integration provides a bridge between Claude Code and your Tenable infrastructure, enabling intelligent automation and insights without manual intervention.
+
 ## Project Structure
 
 ```
 tenable-healthcheck-agent/
 ├── src/
 │   ├── main.py                    # Entry point - run this!
+│   ├── mcp_server.py              # MCP server for Claude Code integration
 │   ├── tenable_client.py          # Tenable API wrapper
 │   ├── config_loader.py           # Configuration management
 │   ├── collectors/                # Data collection modules
