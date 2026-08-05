@@ -50,6 +50,7 @@ def main() -> None:
     parser.add_argument('--date', help='Date/time stamp of run (e.g., 20260528_103045)', type=str)
     parser.add_argument('--output', help='Output HTML file path (default: reports/healthcheck_TIMESTAMP.html)', type=Path)
     parser.add_argument('--skip-ai', action='store_true', help='Skip AI analysis (use cached analysis from JSON file)')
+    parser.add_argument('--ai-only', action='store_true', help='Run AI analysis and print to stdout; skip HTML generation')
 
     args = parser.parse_args()
 
@@ -116,6 +117,34 @@ def main() -> None:
         print("Caching AI analysis to data file for future testing...")
         run_data['claude_analysis'] = claude_analysis
         save_run_data(data_file, run_data)
+
+    if args.ai_only:
+        if claude_analysis:
+            print("\n=== AI HEALTH ANALYSIS ===\n")
+            print(f"Status: {claude_analysis.get('health_status', 'unknown').upper()}")
+            print(f"\nSummary:\n{claude_analysis.get('executive_summary', '')}")
+            concerns = claude_analysis.get('key_concerns', [])
+            if concerns:
+                print("\nKey Concerns:")
+                for concern in concerns:
+                    print(f"  - {concern}")
+            recommendations = claude_analysis.get('recommendations', [])
+            if recommendations:
+                print("\nRecommendations:")
+                for rec in recommendations:
+                    priority = rec.get('priority', '').upper()
+                    issue = rec.get('issue', '')
+                    action = rec.get('action', '')
+                    print(f"  [{priority}] {issue}")
+                    print(f"         Action: {action}")
+            trends = claude_analysis.get('trends', [])
+            if trends:
+                print("\nTrends:")
+                for trend in trends:
+                    print(f"  - {trend}")
+        else:
+            print("No AI analysis available.")
+        return
 
     print("Generating HTML report...")
 
